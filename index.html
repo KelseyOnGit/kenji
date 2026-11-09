@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#142e25">
+    <title>Kenji SSS Parts · Time clock</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Kenji SSS Parts home"><span class="brand-mark">K</span><span>KENJI <small>SSS PARTS</small></span></a>
+      <span class="location"><span class="dot"></span> PERTH, WESTERN AUSTRALIA</span>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">THE TEAM TIME CLOCK</p>
+        <h1>Good work starts here.</h1>
+        <p>Clock in, get to work, and make every hour count.</p>
+      </section>
+      <div class="workspace">
+        <section class="clock-card" aria-labelledby="clock-heading">
+          <div class="card-top"><h2 id="clock-heading">Your time, tracked.</h2><span class="pill">AWST · UTC+8</span></div>
+          <div class="live-clock"><time id="clock">--:--:--</time><p id="date">Perth local time</p></div>
+          <form id="clock-form">
+            <label for="employee-id">Employee ID</label>
+            <input id="employee-id" name="employee-id" maxlength="32" placeholder="e.g. K001" autocomplete="off" required pattern="[A-Za-z0-9_\-]+" title="Use letters, numbers, hyphens or underscores" aria-describedby="id-help">
+            <p class="field-help" id="id-help">Use the same employee ID for each shift, not your name or email. IDs are not passwords.</p>
+            <div class="shift-status" id="shift-status" role="status">Enter your employee ID to get started.</div>
+            <div class="clock-actions">
+              <button class="primary" type="submit" name="action" value="in" id="clock-in">Clock in <span aria-hidden="true">↗</span></button>
+              <button class="secondary" type="submit" name="action" value="out" id="clock-out" disabled>Clock out <span aria-hidden="true">↘</span></button>
+            </div>
+          </form>
+          <p id="message" class="message" role="status" aria-live="polite"></p>
+          <noscript><p>JavaScript is required to record shifts. Please enable it in your browser.</p></noscript>
+        </section>
+        <aside class="overview" aria-labelledby="overview-heading">
+          <p class="eyebrow">A LITTLE CLARITY FOR YOUR DAY</p>
+          <h2 id="overview-heading">On the clock.<br>In the know.</h2>
+          <p class="overview-copy">Your shift at a glance. Select your employee ID to see your hours.</p>
+          <div class="stat"><span>Current shift</span><strong id="current-total">0h 00m</strong><small id="current-detail">Not clocked in</small></div>
+          <div class="stat-row">
+            <div class="stat"><span>Today</span><strong id="today-total">0h 00m</strong><small>Perth local day</small></div>
+            <div class="stat"><span>This week</span><strong id="week-total">0h 00m</strong><small>Monday – Sunday</small></div>
+          </div>
+          <p class="local-note"><strong>Saved on this browser only.</strong> Anyone using this browser can view its records. This is not a shared payroll system. Export regularly. Clearing browser data removes records.</p>
+        </aside>
+      </div>
+      <section class="history" aria-labelledby="history-heading">
+        <div class="history-heading"><div><p class="eyebrow">THE PAPER TRAIL, MINUS THE PAPER</p><h2 id="history-heading">Shift history</h2><p>All employees on this browser · times shown in Perth (AWST)</p></div><button id="export" class="export" type="button">Export CSV <span aria-hidden="true">↓</span></button></div>
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Recorded employee shifts on this browser</caption>
+            <thead><tr><th scope="col">Employee ID</th><th scope="col">Clock in</th><th scope="col">Clock out</th><th scope="col">Duration</th><th scope="col">Status</th></tr></thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+        <p id="empty-history" class="empty">A fresh start. Your first shift will appear here.</p>
+      </section>
+    </main>
+    <footer><span>KENJI SSS PARTS</span><span>Built for the team. Running on Perth time.</span></footer>
+  </body>
+</html>
