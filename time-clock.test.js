@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { recordShift, validateShifts, perthBoundaries, totalTime, duration, toCsv } from './time-clock.js';
 
 const start = Date.parse('2026-11-08T15:00:00Z');
-const shift = { id: 'one', employeeId: 'K001', name: 'Alex', start, end: null };
-const input = { employeeId: ' k001 ', name: ' Alex ', action: 'in', now: start, id: 'one' };
+const shift = { id: 'one', employeeId: 'K001', start, end: null };
+const input = { employeeId: ' k001 ', action: 'in', now: start, id: 'one' };
 
 test('clock in normalizes identity and clock out preserves the original record', () => {
   const shifts = recordShift([], input);
   assert.deepEqual(shifts, [shift]);
-  const ended = recordShift(shifts, { ...input, action: 'out', now: start + 3_600_000, name: 'Other' });
+  const ended = recordShift(shifts, { ...input, action: 'out', now: start + 3_600_000 });
   assert.deepEqual(ended, [{ ...shift, end: start + 3_600_000 }]);
   assert.equal(shifts[0].end, null);
   assert.equal(duration(ended[0].end - start), '1h 00m');
@@ -24,7 +24,7 @@ test('rejects duplicate clock ins, missing clock outs and backwards device time'
 
 test('different employees can work simultaneously and invalid identity is rejected', () => {
   assert.equal(recordShift([shift], { ...input, employeeId: 'K002', id: 'two' }).length, 2);
-  assert.throws(() => recordShift([], { ...input, name: ' ' }), /name/);
+  assert.throws(() => recordShift([], { ...input, employeeId: ' ' }), /employee ID/);
   assert.throws(() => recordShift([], { ...input, employeeId: '<script>' }), /employee ID/);
 });
 
@@ -51,11 +51,10 @@ test('invalid saved data cannot be silently accepted', () => {
   assert.deepEqual(validateShifts([]), []);
 });
 
-test('CSV escapes names, prevents spreadsheet formulas, and labels active shifts', () => {
-  const csv = toCsv([{ ...shift, employeeId: '-K001', name: '=SUM(1,2)"\n' }], start + 90_000);
+test('CSV prevents spreadsheet formulas and labels active shifts', () => {
+  const csv = toCsv([{ ...shift, employeeId: '-K001' }], start + 90_000);
   assert.ok(csv.startsWith('\uFEFF'));
   assert.ok(csv.includes(`"'-K001"`));
-  assert.ok(csv.includes(`"'=SUM(1,2)""\n"`));
   assert.ok(csv.includes('"1","Active"'));
   assert.ok(toCsv([{ ...shift, end: start + 3_600_000 }], start).includes('"60","Complete"'));
 });

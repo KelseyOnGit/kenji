@@ -26,10 +26,8 @@
           <div class="live-clock"><time id="clock">--:--:--</time><p id="date">Perth local time</p></div>
           <form id="clock-form">
             <label for="employee-id">Employee ID</label>
-            <input id="employee-id" name="employee-id" maxlength="32" placeholder="e.g. K001" autocomplete="off" required pattern="[A-Za-z0-9_\-]+" title="Use letters, numbers, hyphens or underscores">
-            <label for="employee-name">Your name</label>
-            <input id="employee-name" name="employee-name" maxlength="80" placeholder="e.g. Alex Taylor" autocomplete="name" required>
-            <p class="field-help">Use the same employee ID for each shift. IDs are not passwords.</p>
+            <input id="employee-id" name="employee-id" maxlength="32" placeholder="e.g. K001" autocomplete="off" required pattern="[A-Za-z0-9_\-]+" title="Use letters, numbers, hyphens or underscores" aria-describedby="id-help">
+            <p class="field-help" id="id-help">Use the same employee ID for each shift, not your name or email. IDs are not passwords.</p>
             <div class="shift-status" id="shift-status" role="status">Enter your employee ID to get started.</div>
             <div class="clock-actions">
               <button class="primary" type="submit" name="action" value="in" id="clock-in">Clock in <span aria-hidden="true">↗</span></button>
@@ -48,7 +46,7 @@
             <div class="stat"><span>Today</span><strong id="today-total">0h 00m</strong><small>Perth local day</small></div>
             <div class="stat"><span>This week</span><strong id="week-total">0h 00m</strong><small>Monday – Sunday</small></div>
           </div>
-          <p class="local-note"><strong>Saved on this browser only.</strong> This is a single-device time clock, not a shared payroll system. Export regularly. Clearing browser data removes records.</p>
+          <p class="local-note"><strong>Saved on this browser only.</strong> Anyone using this browser can view its records. This is not a shared payroll system. Export regularly. Clearing browser data removes records.</p>
         </aside>
       </div>
       <section class="history" aria-labelledby="history-heading">
@@ -56,7 +54,7 @@
         <div class="table-wrap">
           <table>
             <caption class="sr-only">Recorded employee shifts on this browser</caption>
-            <thead><tr><th scope="col">Team member</th><th scope="col">Clock in</th><th scope="col">Clock out</th><th scope="col">Duration</th><th scope="col">Status</th></tr></thead>
+            <thead><tr><th scope="col">Employee ID</th><th scope="col">Clock in</th><th scope="col">Clock out</th><th scope="col">Duration</th><th scope="col">Status</th></tr></thead>
             <tbody id="history-body"></tbody>
           </table>
         </div>

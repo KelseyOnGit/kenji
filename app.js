@@ -55,10 +55,7 @@ function renderHistory() {
   for (const shift of [...shifts].sort((a, b) => b.start - a.start)) {
     const row = document.createElement('tr');
     const person = document.createElement('td');
-    person.textContent = shift.name;
-    const id = document.createElement('small');
-    id.textContent = shift.employeeId;
-    person.append(id);
+    person.textContent = shift.employeeId;
     row.append(person);
     for (const text of [timestamp(shift.start), shift.end === null ? '—' : timestamp(shift.end), duration((shift.end ?? Date.now()) - shift.start)]) {
       const cell = document.createElement('td');
@@ -76,8 +73,6 @@ function renderHistory() {
 }
 
 $('employee-id').addEventListener('input', () => {
-  const previous = shifts.find(shift => shift.employeeId === normalizeId($('employee-id').value));
-  $('employee-name').value = previous?.name ?? '';
   message('');
   render();
 });
@@ -87,13 +82,12 @@ $('clock-form').addEventListener('submit', async event => {
   if (saving || storageError) return;
   const action = event.submitter?.value ?? 'in';
   const employeeId = $('employee-id').value;
-  const name = $('employee-name').value;
   saving = true;
   render();
   try {
     if (!navigator.locks) throw new Error('Use a modern browser over HTTPS (or localhost) to safely save shifts.');
     await navigator.locks.request(STORAGE_KEY, () => {
-      const next = recordShift(readShifts(), { employeeId, name, action, now: Date.now(), id: crypto.randomUUID() });
+      const next = recordShift(readShifts(), { employeeId, action, now: Date.now(), id: crypto.randomUUID() });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       shifts = next;
     });

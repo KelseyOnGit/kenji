@@ -14,7 +14,6 @@ export function validateShifts(value) {
   for (const shift of value) {
     if (!shift || typeof shift.id !== 'string' || ids.has(shift.id) ||
         typeof shift.employeeId !== 'string' || !/^[A-Z0-9_-]{1,32}$/.test(shift.employeeId) ||
-        typeof shift.name !== 'string' || !shift.name.trim() || shift.name.length > 80 ||
         !Number.isSafeInteger(shift.start) || shift.start < 0 || shift.start > 8.64e15 ||
         !(shift.end === null || (Number.isSafeInteger(shift.end) && shift.end >= shift.start && shift.end <= 8.64e15))) {
       throw new Error('Saved shift data is invalid. Export or recover your browser data before continuing.');
@@ -28,18 +27,16 @@ export function validateShifts(value) {
   return value;
 }
 
-export function recordShift(shifts, { employeeId, name, action, now, id }) {
+export function recordShift(shifts, { employeeId, action, now, id }) {
   validateShifts(shifts);
   employeeId = normalizeId(employeeId);
-  name = name.trim();
   if (!/^[A-Z0-9_-]{1,32}$/.test(employeeId)) throw new Error('Enter an employee ID using letters, numbers, hyphens or underscores.');
-  if (!name || name.length > 80) throw new Error('Enter your name (up to 80 characters).');
   const active = shifts.find(shift => shift.employeeId === employeeId && shift.end === null);
   if (action === 'in') {
     if (active) throw new Error('You are already clocked in.');
     const latestEnd = Math.max(0, ...shifts.filter(shift => shift.employeeId === employeeId).map(shift => shift.end ?? shift.start));
     if (now < latestEnd) throw new Error('The device clock is earlier than your last shift. Check the device time.');
-    return validateShifts([...shifts, { id, employeeId, name, start: now, end: null }]);
+    return validateShifts([...shifts, { id, employeeId, start: now, end: null }]);
   }
   if (action !== 'out') throw new Error('Choose clock in or clock out.');
   if (!active) throw new Error('You are not clocked in yet.');
@@ -74,12 +71,12 @@ export function timestamp(value) {
 export function toCsv(shifts, now) {
   const cell = value => {
     const text = String(value);
-    // Prevent spreadsheet formula execution for user-entered names and IDs.
+    // Prevent spreadsheet formula execution for user-entered IDs.
     return `"${(/^[\s]*[=+\-@]/.test(text) ? "'" + text : text).replaceAll('"', '""')}"`;
   };
-  const rows = [['Employee ID', 'Name', 'Clock in (AWST)', 'Clock out (AWST)', 'Duration (minutes)', 'Status']];
+  const rows = [['Employee ID', 'Clock in (AWST)', 'Clock out (AWST)', 'Duration (minutes)', 'Status']];
   for (const shift of shifts) {
-    rows.push([shift.employeeId, shift.name, timestamp(shift.start),
+    rows.push([shift.employeeId, timestamp(shift.start),
       shift.end === null ? '' : timestamp(shift.end),
       Math.floor(Math.max(0, (shift.end ?? now) - shift.start) / 60_000),
       shift.end === null ? 'Active' : 'Complete']);
