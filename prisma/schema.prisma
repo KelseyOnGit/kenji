@@ -1,0 +1,67 @@
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+    ADMIN 
+    STAFF
+}
+
+enum EmploymentType {
+    FULL_TIME
+    CASUAL 
+}
+
+model User {
+    id             String          @id @default(cuid())
+    name           String
+    pin            String?         @unique @db.Char(4)
+    role           Role            @default(STAFF)
+    employmentType EmploymentType?
+    active         Boolean         @default(true)
+
+    // Only admins have these; staff leave them null
+    email        String?  @unique
+    passwordHash String?
+
+    shifts    Shift[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Shift {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  clockIn   DateTime  @default(now()) @db.Timestamptz(3)
+  clockOut  DateTime? @db.Timestamptz(3)   // null = still clocked in
+
+  edited    Boolean   @default(false)      // true once an admin changes the times
+  note      String?                        // e.g. "Forgot to clock out, fixed by manager"
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, clockOut])  // fast "is this person clocked in?" lookup
+  @@index([clockIn])           // fast timesheet date-range queries
+}
+
+model PinLockout {
+    key        String    @id
+// "kiosk", or the client IP
+    failCount  Int       @default(0)
+    lockedUntil DateTime?
+    updatedAt   DateTime @updatedAt
+}

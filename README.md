@@ -1,30 +1,51 @@
-# Kenji SSS Parts time clock
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A responsive, single-device clock-in/out website for the Kenji SSS Parts team in Perth. Includes employee IDs, live shift status, daily and Monday–Sunday totals, shift history and CSV export. Dates and day/week boundaries use Australia/Perth (AWST), regardless of the device's timezone. Totals include active shifts and round down to whole minutes; no break deductions or payroll rounding are applied.
+## Getting Started
 
-## Run locally
+First, run the development server:
 
-Serve this directory with a static HTTP server, for example:
-
-```sh
-python3 -m http.server 3000
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open http://localhost:3000. No package installation or build is needed. A modern browser with Web Locks and local storage is required; recording shifts requires HTTPS or localhost.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```sh
-npm test
-npm run check
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Deploy to Vercel
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-Import this GitHub repository into Vercel. Select **Other** as the framework preset, leave the build command empty, and use **.** as the output directory. The included `vercel.json` configures static hosting and security headers. Deploy; no environment variables are required.
+## Learn More
 
-## Storage and company use
+To learn more about Next.js, take a look at the following resources:
 
-**This is a browser-local starter, not a production multi-user attendance or payroll system.** Records are stored in local storage on the current browser and origin. They survive refreshes but are not shared across browsers, devices, preview deployments or domains. Everyone using that browser can view all records. Employee IDs identify records; they do not authenticate employees. The device clock determines timestamps and records can be edited through browser tools.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-Use the same employee ID for every shift, not a name or email address. The app does not collect employee names; records contain only IDs and shift timestamps. IDs and attendance records are still visible to anyone using this browser, so use only a trusted device. Only one active shift per ID is allowed, and overnight shifts are counted across Perth day/week boundaries. Export CSV regularly and before clearing browser data; exports are backups for external use, not re-importable within this app. Private browsing, clearing site data, or switching domains can make records unavailable. Storage errors block recording rather than silently discarding existing data.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-Before relying on this for company-wide attendance, add authenticated employee accounts, server-validated timestamps, a shared database with backups, role-restricted manager access, and an audited correction process. Do not treat this starter's browser records as authoritative payroll data.
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Neon database
+
+1. Create a Neon project and copy its pooled connection string (the hostname includes `-pooler`) and its direct connection string.
+2. Copy `.env.example` to `.env`, then set `DATABASE_URL` to the pooled URL and `DIRECT_URL` to the direct URL. Keep `.env` private; it is ignored by Git.
+3. Generate the Prisma client and create the initial database migration:
+
+   ```bash
+   npm run db:generate
+   npm run db:migrate -- --name init
+   ```
+
+4. Start the app and open `/api/health/db`. A successful response confirms Prisma can query Neon.
+
+Use `npm run db:deploy` to apply committed migrations in production. Set both connection strings as server-side environment variables in the deployment platform; do not prefix them with `NEXT_PUBLIC_`.
