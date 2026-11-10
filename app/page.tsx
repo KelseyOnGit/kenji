@@ -11,8 +11,7 @@ type StaffMember = {
 const staffMembers: StaffMember[] = [
   { id: "nathanial", name: "Nathanial Tong", initials: "NT" },
   { id: "kelsey", name: "Kelsey Wang", initials: "KW" },
-  { id: "sam", name: "Sam Taylor", initials: "ST" },
-  { id: "casey", name: "Casey Chen", initials: "CC" },
+  { id: "gloria", name: "Gloria Yu", initials: "GY" },
 ];
 
 const perthTime = new Intl.DateTimeFormat("en-AU", {
@@ -102,7 +101,7 @@ export default function Home() {
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            S
+            SSS
           </span>
           <span className="brand-copy">
             <strong>SSS PARTS</strong>
@@ -128,9 +127,9 @@ export default function Home() {
               STAFF TIME CLOCK
             </p>
             <h1 id="page-title">
-              Ready when
+              Clock in when
               <br />
-              <span>you are.</span>
+              <span>you are Ready.</span>
             </h1>
           </div>
           <div className="intro-aside">
@@ -188,12 +187,7 @@ export default function Home() {
                   );
                 })}
               </div>
-              <p className="staff-hint">
-                <span className="hint-icon" aria-hidden="true">
-                  i
-                </span>
-                Can&apos;t see your name? Please ask your manager.
-              </p>
+
             </div>
 
             <div className="pin-section">
@@ -327,8 +321,7 @@ export default function Home() {
         </footer>
 
         <p className="preview-disclaimer">
-          Preview only: sample staff, any four-digit PIN accepted, and shift
-          changes are not saved.
+          Preview only: sample staff, any four-digit PIN accepted.
         </p>
       </div>
     </main>
