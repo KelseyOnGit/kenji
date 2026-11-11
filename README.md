@@ -35,6 +35,17 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Kiosk preview
+
+The home page is an interactive kiosk design preview: select a staff name, enter
+any four-digit PIN using the touch keypad or keyboard, and clock in or out.
+It does not authenticate against Neon or save shifts; refreshing resets the
+preview. Times are displayed in Australia/Perth. Timesheets, payroll, and breaks
+are outside this preview's scope.
+
+See [the implementation plan](./PLAN.md) for the current kiosk focus and deferred
+staff signup, profile management, admin PIN resets, timesheets, and payroll reports.
+
 ## Neon database
 
 1. Create a Neon project and copy its pooled connection string (the hostname includes `-pooler`) and its direct connection string.
