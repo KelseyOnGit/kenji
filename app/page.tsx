@@ -1,52 +1,49 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-
-const staffMembers = [
-  { id: "nathanial", name: "Nathanial Tong", initials: "NT" },
-  { id: "kelsey", name: "Kelsey Wang", initials: "KW" },
-  { id: "gloria", name: "Gloria Yu", initials: "GY" },
-];
+import { punchResponseSchema, staffResponseSchema, type Staff } from "@/lib/contracts";
+import { RequestError, requestJson } from "@/lib/client-api";
 
 const perthTime = new Intl.DateTimeFormat("en-AU", {
-  timeZone: "Australia/Perth",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
+  timeZone: "Australia/Perth", hour: "2-digit", minute: "2-digit", hour12: false,
 });
-
 const perthDate = new Intl.DateTimeFormat("en-AU", {
-  timeZone: "Australia/Perth",
-  weekday: "long",
-  day: "numeric",
-  month: "long",
+  timeZone: "Australia/Perth", weekday: "long", day: "numeric", month: "long",
 });
 
 function Arrow() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12h14m-6-6 6 6-6 6" />
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>;
 }
 
 function ClockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>;
+}
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
 export default function Home() {
   const [now, setNow] = useState<Date | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [search, setSearch] = useState({
+    query: "", staff: [] as Staff[], hasMore: false, loading: false, error: "",
+  });
+  const [refresh, setRefresh] = useState(0);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [pin, setPin] = useState("");
-  const [isVerified, setIsVerified] = useState(false);
-  const [activeShifts, setActiveShifts] = useState<Record<string, string>>({});
-  const [notice, setNotice] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const pinInput = useRef<HTMLInputElement>(null);
+  const submitting = useRef(false);
+  const requestId = useRef<string | null>(null);
+  const normalizedQuery = query.trim();
+  const clockInTime = selectedStaff?.currentShift?.clockIn;
 
   useEffect(() => {
     const updateTime = () => setNow(new Date());
@@ -55,48 +52,117 @@ export default function Home() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const selectedStaff = staffMembers.find((staff) => staff.id === selectedId);
-  const clockInTime = selectedId ? activeShifts[selectedId] : undefined;
+  useEffect(() => {
+    if (!normalizedQuery) return;
+    const controller = new AbortController();
+    async function load() {
+      setSearch({ query: normalizedQuery, staff: [], hasMore: false, loading: true, error: "" });
+      try {
+        const result = await requestJson(`/api/staff?q=${encodeURIComponent(normalizedQuery)}`, staffResponseSchema, { signal: controller.signal });
+        if (!controller.signal.aborted) setSearch({ query: normalizedQuery, ...result, loading: false, error: "" });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setSearch({
+          query: normalizedQuery, staff: [], hasMore: false, loading: false,
+          error: error instanceof Error ? error.message : "Staff search failed. Please try again.",
+        });
+      }
+    }
+    const timer = window.setTimeout(load, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [normalizedQuery, refresh]);
 
-  function selectStaff(id: string | null) {
-    setSelectedId(id);
+  useEffect(() => {
+    if (!selectedStaff || pending) return;
+    function reset() {
+      setSelectedStaff(null);
+      setQuery("");
+      setPin("");
+      setConfirming(false);
+      setError("");
+      requestId.current = null;
+    }
+    let timeout = window.setTimeout(reset, 60000);
+    function activity() {
+      window.clearTimeout(timeout);
+      timeout = window.setTimeout(reset, 60000);
+    }
+    window.addEventListener("pointerdown", activity);
+    window.addEventListener("keydown", activity);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("pointerdown", activity);
+      window.removeEventListener("keydown", activity);
+    };
+  }, [selectedStaff, pending]);
+
+  function selectStaff(staff: Staff | null) {
+    setSelectedStaff(staff);
     setPin("");
-    setIsVerified(false);
-    setNotice(null);
-  }
-
-  function handlePinChange(value: string) {
-    setPin(value.replace(/\D/g, "").slice(0, 4));
+    setConfirming(false);
+    setError("");
+    setNotice("");
+    setSuggestionsOpen(false);
+    setActiveSuggestion(-1);
+    requestId.current = null;
   }
 
   function handleVerify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (selectedStaff && pin.length === 4) {
-      setIsVerified(true);
-      setPin("");
+    if (selectedStaff && /^\d{4}$/.test(pin)) {
+      setError("");
+      setConfirming(true);
     }
   }
 
-  function handleClockAction() {
-    if (!selectedStaff || !isVerified) return;
-    const timestamp = new Date();
-
-    setActiveShifts((shifts) => {
-      const updatedShifts = { ...shifts };
-      if (clockInTime) {
-        delete updatedShifts[selectedStaff.id];
-      } else {
-        updatedShifts[selectedStaff.id] = timestamp.toISOString();
+  async function handleClockAction() {
+    if (!selectedStaff || !confirming || submitting.current) return;
+    submitting.current = true;
+    setPending(true);
+    setError("");
+    try {
+      if (typeof crypto.randomUUID !== "function") {
+        throw new Error("Open this kiosk over HTTPS (or localhost) before clocking in or out.");
       }
-      return updatedShifts;
-    });
-    setNotice(
-      `${selectedStaff.name} clocked ${clockInTime ? "out" : "in"} at ${perthTime.format(timestamp)}.`,
-    );
-    setSelectedId(null);
-    setPin("");
-    setIsVerified(false);
+      requestId.current ??= crypto.randomUUID();
+      const result = await requestJson("/api/punch", punchResponseSchema, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedStaff.id, pin,
+          action: selectedStaff.currentShift ? "CLOCK_OUT" : "CLOCK_IN",
+          expectedShiftId: selectedStaff.currentShift?.id ?? null,
+          requestId: requestId.current,
+        }),
+      });
+      setNotice(`${result.displayName} clocked ${result.action === "CLOCK_IN" ? "in" : "out"} at ${perthTime.format(new Date(result.occurredAt))} AWST.`);
+      setSelectedStaff(null);
+      setQuery("");
+      requestId.current = null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Clock action failed. Please try again.";
+      setError(error instanceof RequestError && error.status === 0
+        ? `${message} The result is unknown; retrying this same action will not duplicate it.`
+        : message);
+      if (error instanceof RequestError && [403, 409].includes(error.status)) {
+        setSelectedStaff(null);
+        setRefresh((value) => value + 1);
+        requestId.current = null;
+      }
+    } finally {
+      setPin("");
+      setConfirming(false);
+      setPending(false);
+      submitting.current = false;
+    }
   }
+
+  const searching = normalizedQuery.length > 0 && (search.query !== normalizedQuery || search.loading);
+  const results = !searching && normalizedQuery.length > 0 && search.query === normalizedQuery ? search.staff : [];
+  const showSuggestions = suggestionsOpen && normalizedQuery.length > 0;
 
   return (
     <main className="kiosk-shell">
@@ -105,10 +171,9 @@ export default function Home() {
         <div className="brand" aria-label="SSS Parts team clock">
           <span className="brand-symbol" aria-hidden="true"><ClockIcon /></span>
           <span className="brand-name">SSS<span>Parts</span></span>
-          <span className="brand-divider" />
-          <span className="brand-product">Team clock</span>
+          <span className="brand-divider" /><span className="brand-product">Team clock</span>
         </div>
-        <span className="kiosk-label"><span className="status-dot" />Shared iPad kiosk</span>
+        <Link className="nav-link" href="/register">New staff? Register</Link>
       </header>
 
       <div className="workspace">
@@ -122,94 +187,119 @@ export default function Home() {
         </aside>
 
         <section className="checkin-panel" aria-labelledby="checkin-title">
-          <div className="checkin-topline">
-
-            <span className="preview-badge">Design preview</span>
-          </div>
-
           <ol className="stepper" aria-label="Clock-in steps">
-            <li className={!selectedStaff ? "current" : "complete"} aria-current={!selectedStaff ? "step" : undefined}>
-              <span>1</span>Your name
-            </li>
-            <li className={selectedStaff && !isVerified ? "current" : isVerified ? "complete" : ""} aria-current={selectedStaff && !isVerified ? "step" : undefined}>
-              <span>2</span>Your PIN
-            </li>
-            <li className={isVerified ? "current" : ""} aria-current={isVerified ? "step" : undefined}>
-              <span>3</span>Clock in / out
-            </li>
+            <li className={!selectedStaff ? "current" : "complete"} aria-current={!selectedStaff ? "step" : undefined}><span>1</span>Your name</li>
+            <li className={selectedStaff && !confirming ? "current" : confirming ? "complete" : ""} aria-current={selectedStaff && !confirming ? "step" : undefined}><span>2</span>Your PIN</li>
+            <li className={confirming ? "current" : ""} aria-current={confirming ? "step" : undefined}><span>3</span>Clock in / out</li>
           </ol>
-
           <div className="checkin-heading">
-            <h2 id="checkin-title">{isVerified ? "You're all set." : selectedStaff ? `Hi, ${selectedStaff.name.split(" ")[0]}.` : "Who's clocking in?"}</h2>
-            <p>{isVerified ? "One tap to update your shift." : selectedStaff ? "Enter your 4-digit PIN to continue." : "Find your name below. Let's get your day started."}</p>
+            <h2 id="checkin-title">{confirming ? "Confirm your shift." : selectedStaff ? `Hi, ${selectedStaff.displayName.split(" ")[0]}.` : "Who's clocking in?"}</h2>
+            <p>{confirming ? "Your PIN will be checked when you clock in or out." : selectedStaff ? "Enter the 4-digit PIN you chose when registering." : "Find yourself by name or phone number."}</p>
           </div>
-
-          {notice && <div className="success-notice" role="status"><span aria-hidden="true">&#10003;</span><div><strong>All done. Thank you!</strong><p>{notice}</p></div></div>}
+          {error && <p className="error-notice" role="alert">{error}</p>}
+          {notice && <div className="success-notice" role="status">{notice}</div>}
 
           {!selectedStaff ? (
             <div className="staff-section">
-              <div className="list-heading"><span>TEAM MEMBERS</span><span>{staffMembers.length.toString().padStart(2, "0")}</span></div>
-              <div className="staff-list">
-                {staffMembers.map((staff, index) => {
-                  const isClockedIn = Boolean(activeShifts[staff.id]);
-                  return (
-                    <button className={`staff-card avatar-tone-${index}`} type="button" key={staff.id} onClick={() => selectStaff(staff.id)}>
-                      <span className="staff-avatar">{staff.initials}</span>
-                      <span className="staff-copy"><strong>{staff.name}</strong><span>Tap to continue</span></span>
-                      <span className={`shift-badge${isClockedIn ? " on-shift" : ""}`}><span />{isClockedIn ? "On shift" : "Off shift"}</span>
-                      <span className="staff-arrow"><Arrow /></span>
-                    </button>
-                  );
-                })}
+              <label className="input-label" htmlFor="staff-search">Name or phone number</label>
+              <div className={`staff-autocomplete${showSuggestions ? " is-open" : ""}`}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setSuggestionsOpen(false);
+                }}>
+                <div className="search-input-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg>
+                  <input className="text-input" id="staff-search" type="text" role="combobox"
+                    aria-autocomplete="list" aria-expanded={showSuggestions}
+                    aria-controls="staff-suggestions"
+                    aria-activedescendant={showSuggestions && activeSuggestion >= 0 && activeSuggestion < results.length ? `staff-option-${activeSuggestion}` : undefined}
+                    autoComplete="off" maxLength={120} placeholder="Search name or phone number"
+                    value={query} onFocus={() => setSuggestionsOpen(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setSuggestionsOpen(false);
+                        setActiveSuggestion(-1);
+                      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setSuggestionsOpen(true);
+                        if (results.length) setActiveSuggestion((value) =>
+                          event.key === "ArrowDown" ? (value + 1) % results.length : (value <= 0 ? results.length : value) - 1);
+                      } else if (event.key === "Enter" && showSuggestions && results[activeSuggestion]) {
+                        event.preventDefault();
+                        selectStaff(results[activeSuggestion]);
+                      }
+                    }}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setSuggestionsOpen(true);
+                      setActiveSuggestion(-1);
+                      setError("");
+                      setNotice("");
+                    }} />
+                </div>
+                <ul className="staff-suggestions" id="staff-suggestions" role="listbox" aria-label="Staff suggestions" hidden={!showSuggestions}>
+                  {results.map((staff, index) => (
+                    <li id={`staff-option-${index}`} role="option" aria-selected={activeSuggestion === index}
+                      className={`staff-suggestion${activeSuggestion === index ? " is-highlighted" : ""}`}
+                      key={staff.id} onPointerDown={(event) => event.preventDefault()}
+                      onPointerMove={() => setActiveSuggestion(index)}
+                      onClick={() => selectStaff(staff)}>
+                      <span className="staff-avatar">{initials(staff.displayName)}</span>
+                      <span className="staff-copy"><strong>{staff.displayName}</strong></span>
+                      <span className={`shift-badge${staff.currentShift ? " on-shift" : ""}`}><span />{staff.currentShift ? "On shift" : "Off shift"}</span>
+                    </li>
+                  ))}
+                  {searching && <li className="suggestion-message" role="presentation">Searching...</li>}
+                  {!searching && !search.error && results.length === 0 && <li className="suggestion-message" role="presentation">No approved staff found.</li>}
+                  {!searching && search.error && <li className="suggestion-message" role="presentation">Search unavailable. Please retry below.</li>}
+                </ul>
               </div>
-              <p className="staff-help">Not on the list? Contact us for assistance.</p>
+              <div className="search-feedback" role="status">
+                {!normalizedQuery ? "Start typing to see staff suggestions." : searching ? "Searching..." : search.error ? "" : `${results.length}${search.hasMore ? "+" : ""} matching staff`}
+              </div>
+              {!searching && normalizedQuery.length > 0 && search.error && (
+                <div className="error-notice" role="alert">{search.error}<button className="text-button" type="button" onClick={() => setRefresh((value) => value + 1)}>Retry search</button></div>
+              )}
+              {!searching && search.hasMore && results.length > 0 && <p className="staff-help">Keep typing to narrow the suggestions.</p>}
+
             </div>
           ) : (
             <div className="access-section">
               <div className="selected-person">
-                <span className="staff-avatar">{selectedStaff.initials}</span>
-                <span className="staff-copy"><strong>{selectedStaff.name}</strong><span>{clockInTime ? "Currently on shift" : "Currently off shift"}</span></span>
-                <button className="text-button" type="button" onClick={() => selectStaff(null)}>Change</button>
+                <span className="staff-avatar">{initials(selectedStaff.displayName)}</span>
+                <span className="staff-copy"><strong>{selectedStaff.displayName}</strong><span>{clockInTime ? "Currently on shift" : "Currently off shift"}</span></span>
+                <button className="text-button" type="button" disabled={pending} onClick={() => selectStaff(null)}>Change</button>
               </div>
-
-              {!isVerified ? (
+              {!confirming ? (
                 <form className="pin-form" onSubmit={handleVerify}>
                   <label className="sr-only" htmlFor="staff-pin">Your 4-digit PIN</label>
                   <div className="pin-entry" onClick={() => pinInput.current?.focus()}>
-                    <input ref={pinInput} id="staff-pin" className="pin-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" value={pin} onChange={(event) => handlePinChange(event.target.value)} aria-describedby="pin-help" required />
-                    <div className="pin-slots" aria-hidden="true">
-                      {[0, 1, 2, 3].map((index) => <span className={pin.length > index ? "filled" : ""} key={index}>{pin.length > index ? "\u2022" : ""}</span>)}
-                    </div>
+                    <input ref={pinInput} id="staff-pin" className="pin-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} aria-describedby="pin-help" required />
+                    <div className="pin-slots" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span className={pin.length > index ? "filled" : ""} key={index}>{pin.length > index ? "\u2022" : ""}</span>)}</div>
                   </div>
-                  <p id="pin-help" className="pin-help">Your PIN stays private on this shared device.</p>
+                  <p id="pin-help" className="pin-help">Forgotten your PIN? Contact your manager.</p>
                   <div className="keypad" aria-label="PIN keypad">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => <button key={digit} type="button" onClick={() => handlePinChange(pin + digit)} disabled={pin.length === 4}>{digit}</button>)}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => <button key={digit} type="button" onClick={() => setPin((value) => (value + digit).slice(0, 4))} disabled={pin.length === 4}>{digit}</button>)}
                     <button className="keypad-text" type="button" onClick={() => setPin("")}>Clear</button>
-                    <button type="button" onClick={() => handlePinChange(pin + "0")} disabled={pin.length === 4}>0</button>
-                    <button className="keypad-delete" type="button" aria-label="Delete last digit" onClick={() => setPin(pin.slice(0, -1))}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5h11v14H9l-7-7 7-7Zm3 4 6 6m0-6-6 6" /></svg></button>
+                    <button type="button" onClick={() => setPin((value) => (value + "0").slice(0, 4))} disabled={pin.length === 4}>0</button>
+                    <button className="keypad-text" type="button" aria-label="Delete last digit" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
                   </div>
                   <button className="primary-button" type="submit" disabled={pin.length !== 4}>Continue<Arrow /></button>
                 </form>
               ) : (
-                <div className="shift-confirmation">
+                <div className="shift-confirmation" aria-busy={pending}>
                   <span className="confirmation-icon"><ClockIcon /></span>
                   <h3>{clockInTime ? "Wrapping up for today?" : "Ready to start your shift?"}</h3>
-                  <p>{clockInTime ? `You clocked in at ${perthTime.format(new Date(clockInTime))} AWST.` : "You're signed in. Your shift starts when you tap below."}</p>
-                  <button className="primary-button" type="button" onClick={handleClockAction}>{clockInTime ? "Clock out" : "Clock in"}<Arrow /></button>
-                  <button className="text-button cancel-button" type="button" onClick={() => selectStaff(null)}>Cancel and return to team</button>
+                  <p>{clockInTime ? `You clocked in at ${perthTime.format(new Date(clockInTime))} AWST.` : "Your shift starts when you tap below and your PIN is verified."}</p>
+                  <button className="primary-button" type="button" disabled={pending} onClick={handleClockAction}>{pending ? "Saving..." : clockInTime ? "Clock out" : "Clock in"}<Arrow /></button>
+                  <button className="text-button cancel-button" type="button" disabled={pending} onClick={() => selectStaff(null)}>Cancel and return to search</button>
                 </div>
               )}
             </div>
           )}
-
-          <div className="checkin-footer"><span className="privacy-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v6c0 4 8 9 8 9s8-5 8-9V6l-8-3Z" /><path d="m8 12 3 3 5-6" /></svg></span><span>Your name. Your PIN. Your time.</span></div>
+          <div className="checkin-footer">Your name. Your PIN. Your time.</div>
         </section>
       </div>
-
-      <footer className="page-footer">
-        <span>SSS Parts <span className="footer-separator">/</span> Made for the team.</span>
-        <span>Preview only &middot; Any 4-digit PIN &middot; Shifts reset on refresh</span>
-      </footer>
+      <footer className="page-footer"><span>SSS Parts / Team clock</span><span>Shared iPad kiosk &middot; All times AWST</span></footer>
     </main>
   );
 }

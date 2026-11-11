@@ -1,67 +1,74 @@
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-    directUrl = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
-
-// ==========================================
-// ENUMS
-// ==========================================
-
 enum Role {
-    ADMIN 
-    STAFF
+  ADMIN
+  STAFF
 }
 
 enum EmploymentType {
-    FULL_TIME
-    CASUAL 
+  FULL_TIME
+  PART_TIME
+  CASUAL
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
 }
 
 model User {
-    id             String          @id @default(cuid())
-    name           String
-    pin            String?         @unique @db.Char(4)
-    role           Role            @default(STAFF)
-    employmentType EmploymentType?
-    active         Boolean         @default(true)
+  id             String          @id @default(cuid())
+  displayName    String
+  legalName      String
+  pinHash        String
+  role           Role            @default(STAFF)
+  status         UserStatus      @default(PENDING)
+  employmentType EmploymentType?
+  contactNumber  String?
+  email          String?         @unique
+  passwordHash   String?
 
-    // Only admins have these; staff leave them null
-    email        String?  @unique
-    passwordHash String?
+  shifts    Shift[]
+  payRates  PayRate[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    shifts    Shift[]
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  @@index([status, displayName])
 }
 
 model Shift {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  clockIn           DateTime  @default(now()) @db.Timestamptz(3)
+  clockOut          DateTime? @db.Timestamptz(3)
+  clockInRequestId  String    @unique @db.Uuid
+  clockOutRequestId String?   @unique @db.Uuid
+  edited            Boolean   @default(false)
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  clockIn   DateTime  @default(now()) @db.Timestamptz(3)
-  clockOut  DateTime? @db.Timestamptz(3)   // null = still clocked in
-
-  edited    Boolean   @default(false)      // true once an admin changes the times
-  note      String?                        // e.g. "Forgot to clock out, fixed by manager"
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([userId, clockOut])  // fast "is this person clocked in?" lookup
-  @@index([clockIn])           // fast timesheet date-range queries
+  @@index([userId, clockOut])
+  @@index([clockIn])
 }
 
-model PinLockout {
-    key        String    @id
-// "kiosk", or the client IP
-    failCount  Int       @default(0)
-    lockedUntil DateTime?
-    updatedAt   DateTime @updatedAt
+model PayRate {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  hourlyRate    Decimal  @db.Decimal(10, 2)
+  effectiveFrom DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, effectiveFrom])
 }
