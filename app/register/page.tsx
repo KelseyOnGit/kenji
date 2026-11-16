@@ -64,7 +64,7 @@ export default function RegisterPage() {
         <h1 id="registration-title">{complete ? "You're registered." : "Join the team clock."}</h1>
         {complete ? (
           <div role="status">
-            <p className="registration-intro">Your profile is pending approval. Ask your manager to approve it before you clock in.</p>
+            <p className="registration-intro">Your profile is pending approval. </p>
             <p className="registration-intro">Use the same four-digit PIN once your profile is approved.</p>
             <Link className="primary-button button-link" href="/">Return to clock</Link>
           </div>
@@ -74,7 +74,7 @@ export default function RegisterPage() {
             {error && <p className="error-notice" role="alert">{error}</p>}
             <form className="registration-form" onSubmit={register} aria-busy={pending}>
               <fieldset disabled={pending}>
-                <label htmlFor="fullName">Full name <span>(required, need to match passport)</span></label>
+                <label htmlFor="fullName">Full name <span>(required, need to match your passport)</span></label>
                 <input className="text-input" id="fullName" name="fullName" autoComplete="name" minLength={2} maxLength={120} required />
                 <label htmlFor="displayName">Display name <span>(optional)</span></label>
                 <input className="text-input" id="displayName" name="displayName" maxLength={120} aria-describedby="display-help" />
@@ -93,7 +93,6 @@ export default function RegisterPage() {
                 <input className="text-input" id="contactNumber" name="contactNumber" type="tel" autoComplete="tel" maxLength={30} />
                 <label htmlFor="email">Email <span>(optional)</span></label>
                 <input className="text-input" id="email" name="email" type="email" autoComplete="email" maxLength={254} />
-                <p className="field-help">Your manager will set your employment type after registration.</p>
                 <button className="primary-button" type="submit">{pending ? "Registering..." : "Register"}</button>
               </fieldset>
             </form>

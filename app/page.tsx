@@ -194,7 +194,6 @@ export default function Home() {
           </ol>
           <div className="checkin-heading">
             <h2 id="checkin-title">{confirming ? "Confirm your shift." : selectedStaff ? `Hi, ${selectedStaff.displayName.split(" ")[0]}.` : "Who's clocking in?"}</h2>
-            <p>{confirming ? "Your PIN will be checked when you clock in or out." : selectedStaff ? "Enter the 4-digit PIN you chose when registering." : "Find yourself by name or phone number."}</p>
           </div>
           {error && <p className="error-notice" role="alert">{error}</p>}
           {notice && <div className="success-notice" role="status">{notice}</div>}
@@ -254,7 +253,7 @@ export default function Home() {
                 </ul>
               </div>
               <div className="search-feedback" role="status">
-                {!normalizedQuery ? "Start typing to see staff suggestions." : searching ? "Searching..." : search.error ? "" : `${results.length}${search.hasMore ? "+" : ""} matching staff`}
+  
               </div>
               {!searching && normalizedQuery.length > 0 && search.error && (
                 <div className="error-notice" role="alert">{search.error}<button className="text-button" type="button" onClick={() => setRefresh((value) => value + 1)}>Retry search</button></div>
@@ -276,7 +275,7 @@ export default function Home() {
                     <input ref={pinInput} id="staff-pin" className="pin-input" type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} autoComplete="off" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} aria-describedby="pin-help" required />
                     <div className="pin-slots" aria-hidden="true">{[0, 1, 2, 3].map((index) => <span className={pin.length > index ? "filled" : ""} key={index}>{pin.length > index ? "\u2022" : ""}</span>)}</div>
                   </div>
-                  <p id="pin-help" className="pin-help">Forgotten your PIN? Contact your manager.</p>
+                  <p id="pin-help" className="pin-help">Forgotten your PIN? Contact us.</p>
                   <div className="keypad" aria-label="PIN keypad">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => <button key={digit} type="button" onClick={() => setPin((value) => (value + digit).slice(0, 4))} disabled={pin.length === 4}>{digit}</button>)}
                     <button className="keypad-text" type="button" onClick={() => setPin("")}>Clear</button>

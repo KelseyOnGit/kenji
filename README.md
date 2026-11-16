@@ -37,6 +37,10 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Registration and kiosk
 
+Both pages use an orange-first palette balanced by a charcoal kiosk clock panel,
+black primary controls, warm cream form surfaces, and visible keyboard focus indicators. Shared theme
+colours are defined in `app/globals.css`.
+
 - `/register`: full name and a self-chosen four-digit PIN are required. Display
   name, contact number, and email are optional. A blank display name uses the full
   name. PINs are stored as bcrypt hashes with cost 10, never as readable digits.

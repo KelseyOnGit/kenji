@@ -57,7 +57,7 @@ export function apiError(error: unknown, operation: string): Response {
     code,
   });
   return Response.json(
-    { error: "The service is unavailable. Please try again or contact your manager." },
+    { error: "The service is unavailable. Please try again or contact us." },
     { status: 503 },
   );
 }

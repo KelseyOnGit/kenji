@@ -26,6 +26,6 @@ export async function requestJson<T>(url: string, schema: z.ZodType<T>, init?: R
     throw new RequestError(response.status, parsed.success ? parsed.data.error : "The request failed. Please try again.");
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) throw new RequestError(502, "The server returned an unexpected response. Please contact your manager.");
+  if (!parsed.success) throw new RequestError(502, "The server returned an unexpected response. Please contact us.");
   return parsed.data;
 }
