@@ -3,7 +3,16 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const cookieJar = vi.hoisted(() => new Map<string, string>());
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => cookieJar.has(name) ? { value: cookieJar.get(name) } : undefined,
+    set: (name: string, value: string) => cookieJar.set(name, value),
+    delete: (name: string) => cookieJar.delete(name),
+  }),
+}));
 
 let database: PGlite;
 let server: PGLiteSocketServer;
@@ -11,6 +20,9 @@ let prisma: PrismaClient;
 let register: typeof import("@/app/api/register/route").POST;
 let search: typeof import("@/app/api/staff/route").GET;
 let punch: typeof import("@/app/api/punch/route").POST;
+let staffLogin: typeof import("@leave/app/api/auth/login/route").POST;
+let staffLogout: typeof import("@leave/app/api/auth/logout/route").POST;
+let getStaff: typeof import("@leave/lib/session").getStaff;
 const originalUrl = process.env.DATABASE_URL;
 
 function request(path: string, body: unknown) {
@@ -23,7 +35,8 @@ function request(path: string, body: unknown) {
 
 beforeAll(async () => {
   database = await PGlite.create();
-  await database.exec(await readFile(new URL("../prisma/migrations/20261111040000_initial_registration_kiosk/migration.sql", import.meta.url), "utf8"));
+  await database.exec(await readFile(new URL("../packages/database/prisma/migrations/20261111040000_initial_registration_kiosk/migration.sql", import.meta.url), "utf8"));
+  await database.exec(await readFile(new URL("../packages/database/prisma/migrations/20261116080000_staff_login/migration.sql", import.meta.url), "utf8"));
   server = new PGLiteSocketServer({ db: database, port: 0, host: "127.0.0.1" });
   await server.start();
   process.env.DATABASE_URL = `postgresql://postgres:postgres@${server.getServerConn()}/postgres?connection_limit=1&sslmode=disable`;
@@ -31,13 +44,108 @@ beforeAll(async () => {
   ({ POST: register } = await import("@/app/api/register/route"));
   ({ GET: search } = await import("@/app/api/staff/route"));
   ({ POST: punch } = await import("@/app/api/punch/route"));
+  ({ POST: staffLogin } = await import("@leave/app/api/auth/login/route"));
+  ({ POST: staffLogout } = await import("@leave/app/api/auth/logout/route"));
+  ({ getStaff } = await import("@leave/lib/session"));
   await prisma.$connect();
 }, 30000);
 
 beforeEach(async () => {
+  vi.stubEnv("AUTO_APPROVE_STAFF", "false");
+  cookieJar.clear();
+  await prisma.staffSession.deleteMany();
+  await prisma.staffLoginWindow.deleteMany();
   await prisma.shift.deleteMany();
   await prisma.user.deleteMany();
 });
+
+describe("shared staff identity and leave login", () => {
+  async function staffWithEmail() {
+    const user = await activeStaff();
+    return prisma.user.update({ where: { id: user.id }, data: { email: "staff@example.com" } });
+  }
+  const credentials = { email: "staff@example.com", pin: "0123" };
+  const login = (body: unknown = credentials) => staffLogin(request("/api/auth/login", body));
+
+  it("uses the timer's PIN and protects and deletes an opaque host-only staff session", async () => {
+    expect(await getStaff()).toBeNull();
+    const user = await staffWithEmail();
+    expect((await login({ email: " STAFF@EXAMPLE.COM ", pin: "0123" })).status).toBe(200);
+    expect(await getStaff()).toEqual({ id: user.id, displayName: user.displayName, email: user.email });
+    const session = await prisma.staffSession.findFirstOrThrow();
+    expect(session.tokenHash).not.toBe(cookieJar.get("kenji_leave_session"));
+    expect(session.credentialDigest).not.toBe(user.pinHash);
+    expect((await staffLogout(request("/api/auth/logout", {}))).status).toBe(200);
+    expect(await getStaff()).toBeNull();
+    expect(await prisma.staffSession.count()).toBe(0);
+    expect(await prisma.user.count()).toBe(1);
+  });
+
+  it("shares PIN changes across apps and invalidates earlier sessions", async () => {
+    const user = await staffWithEmail();
+    expect((await login()).status).toBe(200);
+    await prisma.user.update({ where: { id: user.id }, data: { pinHash: await bcrypt.hash("5432", 10) } });
+    expect(await getStaff()).toBeNull();
+    expect((await login()).status).toBe(401);
+    expect((await login({ ...credentials, pin: "5432" })).status).toBe(200);
+    const input = { userId: user.id, pin: "5432", action: "CLOCK_IN", expectedShiftId: null, requestId: crypto.randomUUID() };
+    expect((await punch(request("/api/punch", input))).status).toBe(200);
+  });
+
+  it.each(["PENDING", "INACTIVE", "ADMIN", "missing"])("rejects %s accounts with the same generic response", async (state) => {
+    const user = await staffWithEmail();
+    if (state === "missing") await prisma.user.delete({ where: { id: user.id } });
+    else if (state === "ADMIN") await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+    else await prisma.user.update({ where: { id: user.id }, data: { status: state as "PENDING" | "INACTIVE" } });
+    const response = await login();
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "Incorrect email or PIN, or your profile is not active. Please contact us if you need help." });
+    expect(await prisma.staffSession.count()).toBe(0);
+  });
+
+  it("rejects invalid PINs and malformed credentials without granting access", async () => {
+    await staffWithEmail();
+    expect((await login({ ...credentials, pin: "9999" })).status).toBe(401);
+    expect((await login({ ...credentials, pin: "123" })).status).toBe(400);
+    expect((await login({ ...credentials, role: "ADMIN" })).status).toBe(400);
+    expect(await getStaff()).toBeNull();
+  });
+
+  it("rate limits by normalized email across requests, then reopens after the fixed window", async () => {
+    await staffWithEmail();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      expect((await login({ email: " STAFF@EXAMPLE.COM ", pin: "9999" })).status).toBe(401);
+    }
+    const response = await login();
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("900");
+    await prisma.staffLoginWindow.updateMany({ data: { expiresAt: new Date("2000-01-01") } });
+    expect((await login()).status).toBe(200);
+  });
+
+  it("serializes concurrent login attempts and persists limits independently of sessions", async () => {
+    const responses = await Promise.all(Array.from({ length: 7 }, () => login()));
+    expect(responses.filter(response => response.status === 401)).toHaveLength(5);
+    expect(responses.filter(response => response.status === 429)).toHaveLength(2);
+    expect(await prisma.staffLoginWindow.count()).toBe(1);
+  });
+
+  it("rejects expired, tampered, and no-longer-active sessions", async () => {
+    const user = await staffWithEmail();
+    await login();
+    const token = cookieJar.get("kenji_leave_session")!;
+    cookieJar.set("kenji_leave_session", "a".repeat(43));
+    expect(await getStaff()).toBeNull();
+    cookieJar.set("kenji_leave_session", token);
+    await prisma.staffSession.updateMany({ data: { expiresAt: new Date("2000-01-01") } });
+    expect(await getStaff()).toBeNull();
+    await login();
+    await prisma.user.update({ where: { id: user.id }, data: { status: "INACTIVE" } });
+    expect(await getStaff()).toBeNull();
+  });
+});
+
+afterEach(() => vi.unstubAllEnvs());
 
 afterAll(async () => {
   await prisma?.$disconnect();
@@ -64,6 +172,19 @@ describe("PostgreSQL migration and real Prisma route integration", () => {
     expect((await (await search(new Request("http://localhost/api/staff?q=integration"))).json()).staff).toEqual([]);
     await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE" } });
     const results = await (await search(new Request("http://localhost/api/staff?q=INTE"))).json();
+    expect(results.staff).toEqual([{ id: user.id, displayName: user.displayName, currentShift: null }]);
+  });
+
+  it("makes a new registration searchable immediately when auto-approval is enabled", async () => {
+    vi.stubEnv("AUTO_APPROVE_STAFF", "true");
+    const response = await register(request("/api/register", { fullName: "Integration Staff", pin: "0123" }));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ status: "ACTIVE" });
+    const user = await prisma.user.findFirstOrThrow();
+    expect(user.status).toBe("ACTIVE");
+    expect(user.role).toBe("STAFF");
+    expect(await bcrypt.compare("0123", user.pinHash)).toBe(true);
+    const results = await (await search(new Request("http://localhost/api/staff?q=inte"))).json();
     expect(results.staff).toEqual([{ id: user.id, displayName: user.displayName, currentShift: null }]);
   });
 

@@ -1,0 +1,95 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CASUAL
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id             String          @id @default(cuid())
+  displayName    String
+  legalName      String
+  pinHash        String
+  role           Role            @default(STAFF)
+  status         UserStatus      @default(PENDING)
+  employmentType EmploymentType?
+  contactNumber  String?
+  email          String?         @unique
+  passwordHash   String?
+
+  shifts    Shift[]
+  payRates  PayRate[]
+  staffSessions StaffSession[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, displayName])
+}
+
+model StaffSession {
+  tokenHash        String   @id
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialDigest String
+  expiresAt        DateTime @db.Timestamptz(3)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model StaffLoginWindow {
+  key       String   @id
+  attempts  Int
+  expiresAt DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
+
+model Shift {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  clockIn           DateTime  @default(now()) @db.Timestamptz(3)
+  clockOut          DateTime? @db.Timestamptz(3)
+  clockInRequestId  String    @unique @db.Uuid
+  clockOutRequestId String?   @unique @db.Uuid
+  edited            Boolean   @default(false)
+  note              String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId, clockOut])
+  @@index([clockIn])
+}
+
+model PayRate {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  hourlyRate    Decimal  @db.Decimal(10, 2)
+  effectiveFrom DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, effectiveFrom])
+}

@@ -8,13 +8,14 @@
   the first character; narrow by prefix as staff keep typing.
 - Use a plain local-time panel with a large clock, date, and Perth/AWST context.
   Remove slogans, decorative graphics, and redundant shift summaries.
-- Keep the orange accents, clear staff list, touch keypad, confirmation, and
-  return to the name picker after each clock action.
+- Keep the orange accents, clear staff list, and touch keypad. Submit the clock
+  action directly from the PIN screen, then return to search with a success message.
 - Do not add a break function.
 - Register with required full name and a self-chosen four-digit PIN; optional
   display name, phone, and email. No birthday is collected.
-- Create staff as PENDING and store bcrypt PIN hashes at cost 10. Only ACTIVE
-  staff are searchable and allowed to punch.
+- Store bcrypt PIN hashes at cost 10. New staff are PENDING by default; a
+  temporary `AUTO_APPROVE_STAFF=true` testing switch creates ACTIVE staff.
+  Only ACTIVE staff are searchable and allowed to punch.
 - Use PostgreSQL persistence, database timestamps, row-locked transactions,
   explicit actions, expected shift IDs, and idempotent request UUIDs.
 - No lockout or attempt throttling, per the confirmed choice. Repeated PIN
@@ -56,6 +57,6 @@
   full-time/casual differences before implementation.
 - Do not assume pay rates, overtime calculations, or a payroll-processing system.
 
-Only phase 1 is being implemented now. Admin login, profiles, staff approval UI,
-PIN reset UI, timesheets, and payroll reports remain planned work. Until admin
-approval is built, a trusted operator must approve registrations in the database.
+Admin login and a dashboard are in progress. Profiles, staff approval UI, PIN
+reset UI, timesheets, and payroll reports remain planned work. Disable temporary
+auto-approval before rollout once the approval workflow is available.

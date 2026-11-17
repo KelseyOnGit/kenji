@@ -1,0 +1,10 @@
+{
+  "name": "@kenji/web",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./api": "./api.ts",
+    "./client-api": "./client-api.ts"
+  },
+  "dependencies": { "@prisma/client": "^6.19.3", "zod": "^4.1.12" }
+}

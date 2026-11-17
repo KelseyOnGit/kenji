@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { db, tx } = vi.hoisted(() => {
   const tx = {
@@ -41,6 +41,8 @@ const openShift = { id: shiftId, userId, clockIn: startedAt, clockOut: null, clo
 const clockInInput = { userId, pin: "0123", action: "CLOCK_IN", expectedShiftId: null, requestId };
 
 beforeEach(() => {
+  vi.stubEnv("AUTO_APPROVE_STAFF", "");
+  delete process.env.AUTO_APPROVE_STAFF;
   vi.clearAllMocks();
   db.user.create.mockReset().mockResolvedValue({ id: userId });
   db.user.findMany.mockReset().mockResolvedValue([]);
@@ -51,6 +53,10 @@ beforeEach(() => {
   tx.shift.create.mockReset().mockResolvedValue(openShift);
   tx.shift.update.mockReset().mockResolvedValue({ ...openShift, clockOut: endedAt, clockOutRequestId: requestId });
   tx.$queryRaw.mockReset().mockResolvedValue([{ now: endedAt }]);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("POST /api/register", () => {
@@ -80,6 +86,33 @@ describe("POST /api/register", () => {
     });
   });
 
+  it("auto-approves only staff when the temporary setting is enabled", async () => {
+    vi.stubEnv("AUTO_APPROVE_STAFF", "true");
+    const response = await register(post("/api/register", { fullName: "Test Staff", pin: "0123" }));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ status: "ACTIVE" });
+    expect(db.user.create.mock.calls[0][0].data).toMatchObject({ role: "STAFF", status: "ACTIVE" });
+  });
+
+  it("keeps registrations pending when auto-approval is disabled", async () => {
+    vi.stubEnv("AUTO_APPROVE_STAFF", "false");
+    const response = await register(post("/api/register", { fullName: "Test Staff", pin: "0123" }));
+    expect(await response.json()).toEqual({ status: "PENDING" });
+    expect(db.user.create.mock.calls[0][0].data.status).toBe("PENDING");
+  });
+
+  it("reports invalid auto-approval configuration without creating a user", async () => {
+    vi.stubEnv("AUTO_APPROVE_STAFF", "yes");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect((await register(post("/api/register", { fullName: "Test Staff", pin: "0123" }))).status).toBe(503);
+      expect(db.user.create).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it.each([
     { fullName: "", pin: "0123" },
     { fullName: "Test Staff", pin: 1234 },
@@ -97,6 +130,30 @@ describe("POST /api/register", () => {
   it("rejects cross-origin submissions", async () => {
     const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
     request.headers.set("origin", "https://other.example");
+    expect((await register(request)).status).toBe(403);
+    expect(db.user.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts a configured network origin when Next.js uses an internal request URL", async () => {
+    vi.stubEnv("ADDITIONAL_ALLOWED_ORIGINS", "http://192.168.1.97:3001");
+    const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
+    request.headers.set("origin", "http://192.168.1.97:3001");
+    request.headers.set("host", "192.168.1.97:3001");
+    expect((await register(request)).status).toBe(201);
+  });
+
+  it.each([
+    ["http://other.example:3001", "192.168.1.97:3001"],
+    ["http://192.168.1.97:3002", "192.168.1.97:3002"],
+    ["https://192.168.1.97:3001", "192.168.1.97:3001"],
+    ["http://192.168.1.97:3001", "other.example:3001"],
+    ["http://192.168.1.97:3001", ""],
+    ["http://localhost", "192.168.1.97:3001"],
+  ])("rejects untrusted origin or host %s / %s", async (origin, host) => {
+    vi.stubEnv("ADDITIONAL_ALLOWED_ORIGINS", "http://192.168.1.97:3001");
+    const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
+    request.headers.set("origin", origin);
+    if (host) request.headers.set("host", host);
     expect((await register(request)).status).toBe(403);
     expect(db.user.create).not.toHaveBeenCalled();
   });

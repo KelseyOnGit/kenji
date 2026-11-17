@@ -1,0 +1,20 @@
+{
+  "name": "@kenji/leave",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "npm run generate --workspace @kenji/database && next build",
+    "start": "next start --port 3002"
+  },
+  "dependencies": {
+    "@kenji/database": "*",
+    "@kenji/web": "*",
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.1.12"
+  }
+}
