@@ -7,7 +7,7 @@ const config: NextConfig = {
   allowedDevOrigins: (process.env.ALLOWED_DEV_ORIGINS ?? "").split(",").map(value => value.trim()).filter(Boolean),
   turbopack: {
     root: path.resolve(import.meta.dirname, "../.."),
-    rules: { "*.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" } },
+    rules: { "globals.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" } },
   },
 };
 

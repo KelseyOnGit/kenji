@@ -138,10 +138,65 @@ profile. Duplicate names may need distinct display names to avoid confusion.
 
 ### Approval and current scope
 
-An admin login and protected dashboard are in progress. The dashboard shows
+#### Leave-site admin: sign-in, sidebar and timesheets
+
+Run `npm run dev:leave` and open `http://localhost:3002/admin/login`.
+Staff still sign in at `/login` with email and PIN; admins sign in at
+`/admin/login` with email and a separate password. An existing `ACTIVE` `ADMIN`
+user with a bcrypt `passwordHash` is required. This step does not create an
+admin, promote staff, or change any database schema or production data.
+The admin form reads the current field values on submission, including browser
+autofill. Use Show password to check the entry locally; passwords are not trimmed
+or converted to numbers, so leading zeros and intentional spaces are preserved.
+
+The leave admin uses its own host-only, HttpOnly cookie and eight-hour opaque
+sessions. The existing `StaffSession` table stores both leave staff and admin
+sessions, with role and credential checks separating access. Admin password
+changes, deactivation, and role changes invalidate access. Staff PIN changes
+continue to invalidate staff sessions. Admin and staff login limits have separate
+email-based windows (five attempts per 15 minutes). Sign-out only ends the
+selected portal session.
+
+The protected `/admin` shell has Dashboard, Staff Profiles, Pending approval,
+Leave Requests, and Timesheets in the sidebar. Dashboard and Timesheets are
+navigable; the other entries remain marked Soon rather than linking to missing pages.
+Approval/leave badges are deferred until real data and screens exist.
+Planned routes are `/admin/staff`, `/admin/staff/pending`, `/admin/staff/[id]`,
+`/admin/leave`. The timer app's existing admin routes and kiosk are unchanged.
+
+Admins can review and correct shared timer shifts at `/admin/timesheets`.
+Select a Perth week, search names as you type, or toggle Problems only. The
+light table shows Monday to Friday, with plain-text shifts and hours/minutes
+without decimal duplicates. Weekend records remain saved but are excluded
+from this view and its totals, with a notice when present. All totals
+use completed shifts, grouped by the Perth clock-in date; there are no break
+deductions or pay calculations. Click a shift to set clock-out or edit completed
+times. Use Add shift for a missed entry, including inactive staff. Corrections
+require a reason and show their actor, timestamp, and before/after history.
+Staff sessions cannot access this page or its APIs; no staff timesheet page exists.
+
+Apply the additive `20261117064717_shift_audit` migration once with the controlled
+`npm run db:deploy` process before using timesheets. No reset or data replacement
+is needed. Add shift requires HTTPS or localhost to generate a secure request UUID.
+
+Key implementation files:
+- `apps/leave/app/admin/login/page.tsx`: email/password form and redirect.
+- `apps/leave/app/api/admin/auth/login/route.ts`: credential and admin checks.
+- `apps/leave/lib/session.ts`: shared session mechanics and admin page guard.
+- `apps/leave/app/admin/(portal)/layout.tsx`: protected sidebar layout; the
+  route group keeps the login page outside this guard to avoid redirect loops.
+- `apps/leave/components/AdminSidebar.tsx`: sidebar menu and sign-out.
+- `apps/leave/app/admin/(portal)/page.tsx`: minimal protected landing page.
+- `apps/leave/app/admin/(portal)/timesheets/page.tsx`: weekly timesheet query and filters.
+- `apps/leave/components/TimesheetTable.tsx`: weekly table, fix dialogs and history.
+- `apps/leave/lib/timesheets.ts`: pure Perth date/time and completed-hours helpers.
+- `apps/leave/lib/timesheet-writes.ts`: staff row locks, overlap and database-time validation.
+- `apps/leave/app/api/admin/timesheets/`: transactional clock-out, edit and add routes.
+
+The timer app's existing admin dashboard shows
 pending registrations and open shifts, and the sign-out button ends the session.
 The first admin account must be created separately; this does not create one.
-Admin staff approval UI, PIN reset UI, profiles, timesheets, payroll, and breaks
+Admin staff approval UI, PIN reset UI, profiles, payroll, and breaks
 are **not implemented**. For temporary testing, set `AUTO_APPROVE_STAFF=true` in
 the server's `.env` and restart the server; new registrations will immediately
 be able to clock in or out. This setting does not change existing profiles.

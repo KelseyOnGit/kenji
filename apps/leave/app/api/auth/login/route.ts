@@ -3,14 +3,14 @@ import { prisma } from "@kenji/database";
 import { ApiError, apiError, readBody } from "@kenji/web/api";
 import { staffLoginSchema } from "@leave/lib/contracts";
 import { createStaffSession } from "@leave/lib/session";
-import { limitStaffLogin } from "@leave/lib/login-limit";
+import { limitLogin } from "@leave/lib/login-limit";
 
 const DUMMY_HASH = bcrypt.hashSync("not-a-staff-pin", 10);
 
 export async function POST(request: Request) {
   try {
     const { email, pin } = await readBody(request, staffLoginSchema);
-    await limitStaffLogin(email);
+    await limitLogin(email, "staff");
     const users = await prisma.user.findMany({
       where: { email: { equals: email, mode: "insensitive" } },
       select: { id: true, pinHash: true, role: true, status: true },

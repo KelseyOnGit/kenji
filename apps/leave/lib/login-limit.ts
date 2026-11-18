@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { prisma } from "@kenji/database";
 import { ApiError } from "@kenji/web/api";
 
-export async function limitStaffLogin(email: string) {
-  const key = createHash("sha256").update(`leave-login:${email}`).digest("hex");
+export async function limitLogin(email: string, audience: "staff" | "admin") {
+  const prefix = audience === "admin" ? "leave-admin-login" : "leave-login";
+  const key = createHash("sha256").update(`${prefix}:${email}`).digest("hex");
   const [window] = await prisma.$queryRaw<{ attempts: number }[]>`
     INSERT INTO "StaffLoginWindow" ("key", "attempts", "expiresAt")
     VALUES (${key}, 1, clock_timestamp() + interval '15 minutes')

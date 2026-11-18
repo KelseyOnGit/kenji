@@ -6,7 +6,7 @@ import { requestJson } from "@kenji/web/client-api";
 import { successSchema } from "@leave/lib/contracts";
 
 
-export default function LogoutButton() {
+export default function LogoutButton({ admin = false }: { admin?: boolean } = {}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -17,10 +17,10 @@ export default function LogoutButton() {
     setPending(true);
     setError("");
     try {
-      await requestJson("/api/auth/logout", successSchema, {
+      await requestJson(admin ? "/api/admin/auth/logout" : "/api/auth/logout", successSchema, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
-      router.replace("/login");
+      router.replace(admin ? "/admin/login" : "/login");
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Sign out failed. Please try again.");

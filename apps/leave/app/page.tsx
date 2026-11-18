@@ -13,7 +13,7 @@ export default async function StaffHome() {
         <h1>Welcome, {staff.displayName}.</h1>
         <p>Signed in as {staff.email}.</p>
         <p>Your profile and clock PIN are shared with the timer app.</p>
-        <div className="note">Leave requests and timesheet screens are coming next. Continue recording your clock-in/out times at the shared kiosk.</div>
+        <div className="note">Leave requests and profile screens are coming next.</div>
       </section>
     </main>
   );

@@ -23,6 +23,10 @@ let punch: typeof import("@/app/api/punch/route").POST;
 let staffLogin: typeof import("@leave/app/api/auth/login/route").POST;
 let staffLogout: typeof import("@leave/app/api/auth/logout/route").POST;
 let getStaff: typeof import("@leave/lib/session").getStaff;
+let adminLogin: typeof import("@leave/app/api/admin/auth/login/route").POST;
+let adminLogout: typeof import("@leave/app/api/admin/auth/logout/route").POST;
+let getAdmin: typeof import("@leave/lib/session").getAdmin;
+let requireAdmin: typeof import("@leave/lib/session").requireAdmin;
 const originalUrl = process.env.DATABASE_URL;
 
 function request(path: string, body: unknown) {
@@ -47,6 +51,9 @@ beforeAll(async () => {
   ({ POST: staffLogin } = await import("@leave/app/api/auth/login/route"));
   ({ POST: staffLogout } = await import("@leave/app/api/auth/logout/route"));
   ({ getStaff } = await import("@leave/lib/session"));
+  ({ POST: adminLogin } = await import("@leave/app/api/admin/auth/login/route"));
+  ({ POST: adminLogout } = await import("@leave/app/api/admin/auth/logout/route"));
+  ({ getAdmin, requireAdmin } = await import("@leave/lib/session"));
   await prisma.$connect();
 }, 30000);
 
@@ -79,6 +86,142 @@ describe("shared staff identity and leave login", () => {
     expect(await getStaff()).toBeNull();
     expect(await prisma.staffSession.count()).toBe(0);
     expect(await prisma.user.count()).toBe(1);
+  });
+
+  describe("leave admin sign-in", () => {
+    const credentials = { email: "admin@example.com", password: "admin-test-password" };
+    const login = (body: unknown = credentials) => adminLogin(request("/api/admin/auth/login", body));
+    async function adminAccount() {
+      return prisma.user.create({
+        data: {
+          displayName: "Test Admin", legalName: "Test Admin",
+          email: credentials.email, role: "ADMIN", status: "ACTIVE",
+          pinHash: await bcrypt.hash("0123", 10),
+          passwordHash: await bcrypt.hash(credentials.password, 10),
+        },
+      });
+    }
+
+    it("uses a separate password and opaque session and redirects unauthenticated admins", async () => {
+      expect(await getAdmin()).toBeNull();
+      await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT");
+      const user = await adminAccount();
+      expect((await login({ ...credentials, email: " ADMIN@EXAMPLE.COM " })).status).toBe(200);
+      expect(await requireAdmin()).toEqual({ id: user.id, displayName: user.displayName, email: user.email });
+      expect(cookieJar.has("kenji_leave_admin_session")).toBe(true);
+      expect(cookieJar.has("kenji_leave_session")).toBe(false);
+      expect(await getStaff()).toBeNull();
+      const session = await prisma.staffSession.findFirstOrThrow();
+      expect(session.tokenHash).not.toBe(cookieJar.get("kenji_leave_admin_session"));
+      expect(session.credentialDigest).not.toBe(user.passwordHash);
+      expect((await login({ ...credentials, password: "0123" })).status).toBe(401);
+    });
+
+    it.each(["PENDING", "INACTIVE", "STAFF", "missing", "no-password"])("rejects %s accounts without creating a session", async state => {
+      const user = await adminAccount();
+      if (state === "missing") await prisma.user.delete({ where: { id: user.id } });
+      else if (state === "STAFF") await prisma.user.update({ where: { id: user.id }, data: { role: "STAFF" } });
+      else if (state === "no-password") await prisma.user.update({ where: { id: user.id }, data: { passwordHash: null } });
+      else await prisma.user.update({ where: { id: user.id }, data: { status: state as "PENDING" | "INACTIVE" } });
+      const response = await login();
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({
+        error: "Incorrect email or password, or this account does not have admin access. Please contact us if you need help.",
+      });
+      expect(await getAdmin()).toBeNull();
+      expect(await prisma.staffSession.count()).toBe(0);
+    });
+
+    it("rejects incorrect passwords, malformed requests, and ambiguous case-insensitive emails", async () => {
+      const user = await adminAccount();
+      expect((await login({ ...credentials, password: "incorrect" })).status).toBe(401);
+      expect((await login({ ...credentials, password: "" })).status).toBe(400);
+      expect((await login({ ...credentials, role: "ADMIN" })).status).toBe(400);
+      await prisma.user.create({
+        data: {
+          displayName: "Other", legalName: "Other", email: credentials.email.toUpperCase(),
+          pinHash: user.pinHash, passwordHash: user.passwordHash, role: "ADMIN", status: "ACTIVE",
+        },
+      });
+      expect((await login()).status).toBe(401);
+      expect(await getAdmin()).toBeNull();
+    });
+
+    it("isolates staff and admin tokens and signs out only the admin session", async () => {
+      await adminAccount();
+      const staff = await activeStaff();
+      await prisma.user.update({ where: { id: staff.id }, data: { email: "staff@example.com" } });
+      await staffLogin(request("/api/auth/login", { email: "staff@example.com", pin: "0123" }));
+      await login();
+      const staffToken = cookieJar.get("kenji_leave_session")!;
+      const adminToken = cookieJar.get("kenji_leave_admin_session")!;
+      cookieJar.set("kenji_leave_admin_session", staffToken);
+      expect(await getAdmin()).toBeNull();
+      cookieJar.set("kenji_leave_admin_session", adminToken);
+      cookieJar.set("kenji_leave_session", adminToken);
+      expect(await getStaff()).toBeNull();
+      cookieJar.set("kenji_leave_session", staffToken);
+      expect((await adminLogout(request("/api/admin/auth/logout", {}))).status).toBe(200);
+      expect(await getAdmin()).toBeNull();
+      expect(await getStaff()).not.toBeNull();
+      expect(await prisma.staffSession.count()).toBe(1);
+      cookieJar.set("kenji_leave_admin_session", adminToken);
+      expect(await getAdmin()).toBeNull();
+    });
+
+    it("revokes sessions on password, role, or status changes, but not admin PIN changes", async () => {
+      const user = await adminAccount();
+      await login();
+      await prisma.user.update({ where: { id: user.id }, data: { pinHash: await bcrypt.hash("9999", 10) } });
+      expect(await getAdmin()).not.toBeNull();
+      const passwordHash = await bcrypt.hash("new-admin-password", 10);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+      expect(await getAdmin()).toBeNull();
+      await login({ ...credentials, password: "new-admin-password" });
+      await prisma.user.update({ where: { id: user.id }, data: { role: "STAFF" } });
+      expect(await getAdmin()).toBeNull();
+      await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN", status: "INACTIVE" } });
+      expect(await getAdmin()).toBeNull();
+    });
+
+    it("rejects expired and tampered admin sessions", async () => {
+      await adminAccount();
+      await login();
+      const token = cookieJar.get("kenji_leave_admin_session")!;
+      cookieJar.set("kenji_leave_admin_session", "a".repeat(43));
+      expect(await getAdmin()).toBeNull();
+      cookieJar.set("kenji_leave_admin_session", token);
+      await prisma.staffSession.updateMany({ data: { expiresAt: new Date("2000-01-01") } });
+      expect(await getAdmin()).toBeNull();
+    });
+
+    it("limits admin attempts independently from staff attempts and reopens after expiry", async () => {
+      await adminAccount();
+      for (let attempt = 0; attempt < 5; attempt++) {
+        expect((await login({ ...credentials, password: "incorrect" })).status).toBe(401);
+      }
+      const response = await login();
+      expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("900");
+      expect((await staffLogin(request("/api/auth/login", { email: credentials.email, pin: "0123" }))).status).toBe(401);
+      expect(await prisma.staffLoginWindow.count()).toBe(2);
+      await prisma.staffLoginWindow.updateMany({ data: { expiresAt: new Date("2000-01-01") } });
+      expect((await login()).status).toBe(200);
+    });
+
+    it("rejects cross-origin sign-in and sign-out without changing the session", async () => {
+      await adminAccount();
+      const externalRequest = (path: string, body: unknown) => new Request(`http://localhost${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "https://unrelated.example" },
+        body: JSON.stringify(body),
+      });
+      expect((await adminLogin(externalRequest("/api/admin/auth/login", credentials))).status).toBe(403);
+      expect(await prisma.staffLoginWindow.count()).toBe(0);
+      await login();
+      expect((await adminLogout(externalRequest("/api/admin/auth/logout", {}))).status).toBe(403);
+      expect(await getAdmin()).not.toBeNull();
+    });
   });
 
   it("shares PIN changes across apps and invalidates earlier sessions", async () => {
