@@ -205,7 +205,6 @@ describe("add missed shifts", () => {
     for (const invalid of [{ endTime: "08:00" }, { endTime: "01:00" }, { date: "2099-01-05" }]) {
       expect((await add(request({ ...base, ...invalid }))).status).toBe(400);
     }
-    expect((await add(request({ ...base, reason: "x" }))).status).toBe(400);
     expect(await prisma.shift.count()).toBe(0);
   });
 });

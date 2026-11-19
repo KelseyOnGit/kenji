@@ -168,7 +168,6 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
               }, "Leave request cancelled.", true)}>{pending ? "Cancelling..." : "Confirm cancellation"}</button></div>
           ) : (
             <form key={formKey} method="post" onSubmit={submit} className={styles.form} aria-busy={pending}>
-              <p>All dates and times are Perth time. Whole-day end dates are inclusive.</p>
               <label htmlFor="leave-type">Leave type</label>
               <select id="leave-type" name="type" defaultValue={editing?.type ?? "ANNUAL"} disabled={pending}>
                 {Object.entries(leaveTypes).map(([value, label]) => <option value={value} key={value}>{label}</option>)}

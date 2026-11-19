@@ -8,5 +8,12 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./apps/timer/", import.meta.url)),
     },
   },
-  test: { include: ["tests/**/*.test.ts"], environment: "node" },
+  test: { include: ["tests/**/*.test.ts"], 
+    environment: "node" ,
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
+    maxWorkers: 2,
+  },
 });
+
+

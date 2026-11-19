@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { requestJson } from "@kenji/web/client-api";
+import { newRequestId, requestJson } from "@kenji/web/client-api";
 import { timesheetSuccessSchema } from "@leave/lib/contracts";
 import { DAY_MS, formatHours, missingClockOut, perthDisplay, perthLocalToDate, shiftMinutes, toPerthLocal } from "@leave/lib/timesheets";
 import styles from "@leave/app/admin/(portal)/timesheets/timesheets.module.css";
@@ -94,7 +94,6 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
   const requestId = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-
   const add = selection.kind === "add";
   const shift = selection.kind === "fix" ? selection.shift : null;
   const title = add ? "Add missed shift" : shift?.clockOut ? "Edit times" : "Set clock-out";
@@ -112,10 +111,7 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
       let endpoint: string;
       let body: object;
       if (selection.kind === "add") {
-        if (!requestId.current) {
-          if (!globalThis.crypto?.randomUUID) throw new Error("Open this admin site over HTTPS (or localhost) before adding a shift.");
-          requestId.current = crypto.randomUUID();
-        }
+        requestId.current ??= newRequestId();
         endpoint = "add";
         body = { userId: fields.get("userId"), date: fields.get("date"), startTime: fields.get("startTime"), endTime: fields.get("endTime"), reason, requestId: requestId.current };
       } else if (selection.shift.clockOut) {
@@ -146,24 +142,25 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
         <fieldset disabled={pending}>
           {selection.kind === "add" ? <>
             <label>Staff member<select name="userId" required defaultValue={selection.userId}>
-              <option value="">Choose staff member</option>{staff.map(user => <option key={user.id} value={user.id}>{user.displayName}</option>)}
+                    <option value="">Choose staff member</option>{staff.map(user => <option key={user.id} value={user.id}>{user.displayName}</option>)}
             </select></label>
             <label>Date<input type="date" name="date" required defaultValue={selection.date} /></label>
             <label>Start time<input type="time" name="startTime" required /></label>
             <label>End time<input type="time" name="endTime" required /></label>
-            <p>If end time is at or before start time, end is the next day. Maximum shift: 16 hours.</p>
+            <p>If end time is at or before start time, end is the next day.</p>
           </> : <>
             {selection.shift.clockOut && <label>Clock-in<input type="datetime-local" name="clockIn" required defaultValue={toPerthLocal(new Date(selection.shift.clockIn))} /></label>}
             <label>Clock-out<input type="datetime-local" name="clockOut" required defaultValue={selection.shift.clockOut ? toPerthLocal(new Date(selection.shift.clockOut)) : ""} /></label>
           </>}
+          <label>Reason<input type="text" name="reason" maxLength={500} placeholder="Optional note for the edit history" /></label>
           <button type="submit">{pending ? "Saving..." : "Save correction"}</button>
         </fieldset>
       </form>
-        {shift && <section className={styles.history}><h3>Edit history</h3>
+      {shift && <section className={styles.history}><h3>Edit history</h3>
         {!shift.audits.length ? <p>No corrections recorded.</p> : <ol>{shift.audits.map(audit => <li key={audit.id}>
           <strong>{actionLabels[audit.action] ?? audit.action}</strong> · {audit.actor}<br />
           <time dateTime={audit.createdAt}>{fullTime(audit.createdAt)}</time>
-          <p>{describeTimes(audit.before)} → {describeTimes(audit.after)}</p><p>Reason: {audit.reason}</p>
+          <p>{describeTimes(audit.before)} → {describeTimes(audit.after)}</p>{audit.reason && <p>Reason: {audit.reason}</p>}
         </li>)}</ol>}
       </section>}
     </dialog>

@@ -1,1 +1,1 @@
-export { RequestError, requestJson } from "@kenji/web/client-api";
+export { RequestError, newRequestId, requestJson } from "@kenji/web/client-api";

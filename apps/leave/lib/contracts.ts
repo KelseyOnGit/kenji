@@ -26,8 +26,7 @@ export const adminLoginSchema = z.preprocess(legacyEmailLogin, z.object({
 }).strict());
 
 const recordId = z.string().min(1).max(128);
-const reason = z.string().trim().min(3, "Give a reason of at least 3 characters.")
-  .max(500, "Keep the reason to 500 characters.");
+const reason = z.string().trim().max(500, "Keep the note to 500 characters.").default("");
 const perthDateTime = z.string().refine(value => {
   try { perthLocalToDate(value); return true; } catch { return false; }
 }, "Enter a valid Perth date and time.");
@@ -86,3 +85,4 @@ export const leaveReviewSchema = leaveCancelSchema.extend({
   decision: z.enum(["APPROVED", "REJECTED"]),
   note: z.string().trim().max(1000, "Keep your note to 1,000 characters."),
 }).strict();
+

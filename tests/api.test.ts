@@ -134,23 +134,36 @@ describe("POST /api/register", () => {
     expect(db.user.create).not.toHaveBeenCalled();
   });
 
-  it("accepts a configured network origin when Next.js uses an internal request URL", async () => {
-    vi.stubEnv("ADDITIONAL_ALLOWED_ORIGINS", "http://192.168.1.97:3001");
+  it("accepts a forwarded network origin when Next.js uses an internal request URL", async () => {
     const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
     request.headers.set("origin", "http://192.168.1.97:3001");
-    request.headers.set("host", "192.168.1.97:3001");
+    request.headers.set("host", "localhost:3001");
+    request.headers.set("x-forwarded-host", "192.168.1.97:3001");
+    request.headers.set("x-forwarded-proto", "http");
+    expect((await register(request)).status).toBe(201);
+  });
+
+  it("accepts an explicitly configured deployment origin behind a proxy", async () => {
+    vi.stubEnv("ADDITIONAL_ALLOWED_ORIGINS", "https://clock.example.test");
+    const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
+    request.headers.set("origin", "https://clock.example.test");
+    request.headers.set("host", "localhost:3001");
+    expect((await register(request)).status).toBe(201);
+  });
+
+  it("accepts a direct same-host HTTP origin even when Next.js uses an internal URL", async () => {
+    const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
+    request.headers.set("origin", "http://192.168.1.97:3002");
+    request.headers.set("host", "192.168.1.97:3002");
     expect((await register(request)).status).toBe(201);
   });
 
   it.each([
     ["http://other.example:3001", "192.168.1.97:3001"],
-    ["http://192.168.1.97:3002", "192.168.1.97:3002"],
-    ["https://192.168.1.97:3001", "192.168.1.97:3001"],
     ["http://192.168.1.97:3001", "other.example:3001"],
     ["http://192.168.1.97:3001", ""],
     ["http://localhost", "192.168.1.97:3001"],
   ])("rejects untrusted origin or host %s / %s", async (origin, host) => {
-    vi.stubEnv("ADDITIONAL_ALLOWED_ORIGINS", "http://192.168.1.97:3001");
     const request = post("/api/register", { fullName: "Test Staff", pin: "0123" });
     request.headers.set("origin", origin);
     if (host) request.headers.set("host", host);

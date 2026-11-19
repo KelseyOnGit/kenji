@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { punchResponseSchema, staffResponseSchema, type Staff } from "@/lib/contracts";
-import { RequestError, requestJson } from "@/lib/client-api";
+import { RequestError, newRequestId, requestJson } from "@/lib/client-api";
 
 const perthTime = new Intl.DateTimeFormat("en-AU", {
   timeZone: "Australia/Perth", hour: "2-digit", minute: "2-digit", hour12: false,
@@ -114,10 +114,7 @@ export default function Home() {
     setPending(true);
     setError("");
     try {
-      if (typeof crypto.randomUUID !== "function") {
-        throw new Error("Open this kiosk over HTTPS (or localhost) before clocking in or out.");
-      }
-      requestId.current ??= crypto.randomUUID();
+      requestId.current ??= newRequestId();
       const result = await requestJson("/api/punch", punchResponseSchema, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

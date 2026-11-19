@@ -60,7 +60,7 @@ describe("Perth timesheets", () => {
     expect(timesheetClockOutSchema.safeParse({ shiftId: "id", clockOut: "2026-02-30T12:00", reason: "Test reason" }).success).toBe(false);
     const input = { userId: "id", date: "2026-11-16", startTime: "08:00", endTime: "16:00", reason: "Confirmed", requestId: crypto.randomUUID() };
     expect(timesheetAddSchema.safeParse(input).success).toBe(true);
-    for (const invalid of [{ date: "2026-02-30" }, { startTime: "25:00" }, { reason: "  " }, { reason: "x".repeat(501) }, { requestId: "not-a-uuid" }]) {
+    for (const invalid of [{ date: "2026-02-30" }, { startTime: "25:00" }, { reason: "x".repeat(501) }, { requestId: "not-a-uuid" }]) {
       expect(timesheetAddSchema.safeParse({ ...input, ...invalid }).success).toBe(false);
     }
   });
