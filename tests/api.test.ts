@@ -82,7 +82,7 @@ describe("POST /api/register", () => {
       email: " TEST@EXAMPLE.COM ", contactNumber: " +61 400 000 000 ",
     }));
     expect(db.user.create.mock.calls[0][0].data).toMatchObject({
-      displayName: "Test Person", email: "test@example.com", contactNumber: "+61 400 000 000",
+      displayName: "Test Person", email: "test@example.com", contactNumber: "+61 400 000 000", phone: "+61400000000",
     });
   });
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@leave/components/LogoutButton";
 
-const upcomingItems = ["Staff Profiles", "Pending approval", "Leave Requests"];
+const upcomingItems = ["Staff Profiles", "Pending approval"];
 
 export default function AdminSidebar({ displayName }: { displayName: string }) {
   const pathname = usePathname();
@@ -21,6 +21,7 @@ export default function AdminSidebar({ displayName }: { displayName: string }) {
             <span>{label}</span><span className="upcoming-label">Soon</span>
           </span>
         ))}
+        <Link href="/admin/leave" aria-current={pathname.startsWith("/admin/leave") ? "page" : undefined}>Leave Requests</Link>
         <Link href="/admin/timesheets" aria-current={pathname.startsWith("/admin/timesheets") ? "page" : undefined}>Timesheets</Link>
       </nav>
       <div className="admin-sidebar-footer">

@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     const form = event.currentTarget;
     const fields = new FormData(form);
     const parsed = adminLoginSchema.safeParse({
-      email: fields.get("email"),
+      identifier: fields.get("identifier"),
       password: fields.get("password"),
     });
     if (!parsed.success) { setError(parsed.error.issues[0].message); return; }
@@ -54,11 +54,11 @@ export default function AdminLoginPage() {
       <section className="card login-card">
         <p className="eyebrow">Admin access</p>
         <h1>Admin sign in.</h1>
-        <p>Use your admin email and password.</p>
+        <p>Use your registered phone number or email and admin password.</p>
         {error && <p className="error" role="alert">{error}</p>}
-        <form onSubmit={login} aria-busy={pending}>
-          <label htmlFor="admin-email">Email</label>
-          <input id="admin-email" name="email" type="email" autoComplete="username" required maxLength={254}
+        <form method="post" onSubmit={login} aria-busy={pending}>
+          <label htmlFor="admin-identifier">Phone number or email</label>
+          <input id="admin-identifier" name="identifier" type="text" autoComplete="username" required maxLength={254}
             autoCapitalize="none" spellCheck={false} disabled={pending} />
           <label htmlFor="admin-password">Password</label>
           <input id="admin-password" name="password" type={showPassword ? "text" : "password"}

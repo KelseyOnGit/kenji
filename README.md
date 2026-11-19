@@ -141,10 +141,20 @@ profile. Duplicate names may need distinct display names to avoid confusion.
 #### Leave-site admin: sign-in, sidebar and timesheets
 
 Run `npm run dev:leave` and open `http://localhost:3002/admin/login`.
-Staff still sign in at `/login` with email and PIN; admins sign in at
-`/admin/login` with email and a separate password. An existing `ACTIVE` `ADMIN`
+Staff sign in at `/login` with their registered phone number or email and PIN;
+admins sign in at `/admin/login` with their phone number or email and a separate password. An existing `ACTIVE` `ADMIN`
 user with a bcrypt `passwordHash` is required. This step does not create an
-admin, promote staff, or change any database schema or production data.
+admin or promote staff.
+Phone login requires the additive `20261118023409_user_phone` migration
+(`npm run db:deploy`, then `npm run db:generate`).
+It backfills valid existing contact numbers to a unique E.164 phone field without
+changing the original contact number. New registrations save both fields.
+Australian numbers accept local or country-code formats, including spaces,
+brackets, dots and hyphens; other countries require `+` and the country code.
+Invalid existing contact numbers remain unavailable for phone login; email still works.
+Each phone must belong to only one account; duplicate numbers block migration or
+registration rather than selecting the wrong person. Sign-in limits are shared
+across an account's phone and email, and staff/admin sessions stay separate.
 The admin form reads the current field values on submission, including browser
 autofill. Use Show password to check the entry locally; passwords are not trimmed
 or converted to numbers, so leading zeros and intentional spaces are preserved.
@@ -162,7 +172,11 @@ Leave Requests, and Timesheets in the sidebar. Dashboard and Timesheets are
 navigable; the other entries remain marked Soon rather than linking to missing pages.
 Approval/leave badges are deferred until real data and screens exist.
 Planned routes are `/admin/staff`, `/admin/staff/pending`, `/admin/staff/[id]`,
-`/admin/leave`. The timer app's existing admin routes and kiosk are unchanged.
+`/admin/leave`. The only admin portal lives in `apps/leave`. The timer app is
+kiosk-only: its former `/admin`, `/login`, and `/api/auth/*` routes are removed
+(404), along with its JWT cookie handling and `jose` dependency. `JWT_SECRET`
+is no longer used and can be removed from local and deployment environment settings.
+Old timer cookies are no longer read. The kiosk and registration flows are unchanged.
 
 Admins can review and correct shared timer shifts at `/admin/timesheets`.
 Select a Perth week, search names as you type, or toggle Problems only. The
@@ -193,8 +207,6 @@ Key implementation files:
 - `apps/leave/lib/timesheet-writes.ts`: staff row locks, overlap and database-time validation.
 - `apps/leave/app/api/admin/timesheets/`: transactional clock-out, edit and add routes.
 
-The timer app's existing admin dashboard shows
-pending registrations and open shifts, and the sign-out button ends the session.
 The first admin account must be created separately; this does not create one.
 Admin staff approval UI, PIN reset UI, profiles, payroll, and breaks
 are **not implemented**. For temporary testing, set `AUTO_APPROVE_STAFF=true` in

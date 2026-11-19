@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ApiError, apiError, readBody } from "@/lib/api";
 import { registrationSchema } from "@/lib/contracts";
+import { normalizePhone } from "@kenji/web/identity";
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
         displayName: input.displayName ?? input.fullName,
         pinHash,
         contactNumber: input.contactNumber,
+        phone: input.contactNumber ? normalizePhone(input.contactNumber) : null,
         email: input.email,
         role: "STAFF",
         status,
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     return Response.json({ status }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return apiError(new ApiError(409, "That email is already registered. Contact us if you need help."), "Register");
+      return apiError(new ApiError(409, "That email or phone number is already registered. Contact us if you need help."), "Register");
     }
     return apiError(error, "Register");
   }

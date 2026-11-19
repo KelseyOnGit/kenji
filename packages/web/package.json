@@ -4,7 +4,8 @@
   "private": true,
   "exports": {
     "./api": "./api.ts",
-    "./client-api": "./client-api.ts"
+    "./client-api": "./client-api.ts",
+    "./identity": "./identity.ts"
   },
   "dependencies": { "@prisma/client": "^6.19.3", "zod": "^4.1.12" }
 }

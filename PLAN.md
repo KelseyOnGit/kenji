@@ -25,11 +25,20 @@
 - Verify the flow on iPad in portrait and landscape, including missed/duplicate
   actions, connectivity errors, and safe handling of inactive staff.
 
-## 2. Admin login and protected access - deferred
+## 2. Admin login and protected access - implemented in leave
 
-- Add admin login and `proxy.ts` for admin navigation, plus server-side
-  authorization on every admin data operation.
+- Keep one admin login at `apps/leave` `/admin/login`, using opaque database
+  sessions and server-side authorization on every admin page and API.
+- The legacy timer admin pages, auth endpoints, JWT session helper and `jose`
+  dependency are removed. `JWT_SECRET` is no longer needed. Timer is kiosk-only.
 - Staff PIN access must not grant administrative permissions.
+- Both staff and admins can sign in using a registered phone number or email.
+  Staff keep their four-digit kiosk PIN; admins keep their separate password.
+  Normalize phones to unique E.164 values, backfill valid existing contact
+  numbers with the additive `user_phone` migration, and save normalized phones
+  during registration. Do not change kiosk search or clock-in/out behaviour.
+  Phone and email attempts share an account limit; differently formatted phones
+  share the same identifier limit. Unknown identifiers remain rate-limited too.
 
 ## 3. Staff list and profiles - deferred
 

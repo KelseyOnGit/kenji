@@ -8,6 +8,7 @@ vi.mock("@kenji/database", () => ({
   prisma: {
     $queryRaw: vi.fn().mockResolvedValue([{ now: new Date("2026-01-05T00:00:00Z") }]),
     shift: { count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null) },
+    leaveRequest: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 vi.mock("@leave/lib/session", () => ({ requireAdmin: mocks.requireAdmin }));
@@ -33,9 +34,10 @@ describe("leave admin shell", () => {
     }
     expect(html).toContain('href="/admin"');
     expect(html).toContain('aria-current="page"');
-    expect(html.match(/aria-disabled="true"/g)).toHaveLength(3);
-    expect(html.match(/>Soon</g)).toHaveLength(3);
-    expect(html.match(/href=/g)).toHaveLength(2);
+    expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
+    expect(html.match(/>Soon</g)).toHaveLength(2);
+    expect(html.match(/href=/g)).toHaveLength(3);
+    expect(html).toContain('href="/admin/leave"');
     expect(html).toContain('href="/admin/timesheets"');
     expect(html).toContain("Test Admin");
     expect(html).toContain("Admin sign out");

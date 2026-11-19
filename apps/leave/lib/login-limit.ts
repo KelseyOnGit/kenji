@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import { prisma } from "@kenji/database";
 import { ApiError } from "@kenji/web/api";
 
-export async function limitLogin(email: string, audience: "staff" | "admin") {
+export async function limitLogin(identifier: string, audience: "staff" | "admin") {
   const prefix = audience === "admin" ? "leave-admin-login" : "leave-login";
-  const key = createHash("sha256").update(`${prefix}:${email}`).digest("hex");
+  const key = createHash("sha256").update(`${prefix}:${identifier}`).digest("hex");
   const [window] = await prisma.$queryRaw<{ attempts: number }[]>`
     INSERT INTO "StaffLoginWindow" ("key", "attempts", "expiresAt")
     VALUES (${key}, 1, clock_timestamp() + interval '15 minutes')
@@ -16,5 +16,5 @@ export async function limitLogin(email: string, audience: "staff" | "admin") {
     RETURNING "attempts"
   `;
   if (!window) throw new Error("Login attempt limit could not be recorded.");
-  if (window.attempts > 5) throw new ApiError(429, "Too many sign-in attempts for this email. Please try again in 15 minutes.");
+  if (window.attempts > 5) throw new ApiError(429, "Too many sign-in attempts. Please try again in 15 minutes.");
 }

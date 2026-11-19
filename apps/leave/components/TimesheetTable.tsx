@@ -94,6 +94,7 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
   const requestId = useRef<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
   const add = selection.kind === "add";
   const shift = selection.kind === "fix" ? selection.shift : null;
   const title = add ? "Add missed shift" : shift?.clockOut ? "Edit times" : "Set clock-out";

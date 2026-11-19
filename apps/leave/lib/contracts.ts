@@ -1,17 +1,29 @@
 import { z } from "zod";
 import { perthLocalToDate } from "./timesheets";
+import { parseLoginIdentifier } from "@kenji/web/identity";
+import { leaveInterval, validLeaveDate } from "./leave";
 
-export const staffLoginSchema = z.object({
-  email: z.string().trim().toLowerCase().max(254).email("Enter a valid email address."),
-  pin: z.string().regex(/^\d{4}$/, "Enter exactly four digits."),
-}).strict();
+const loginIdentifier = z.string().trim().max(254)
+  .refine(value => parseLoginIdentifier(value) !== null, "Enter a valid phone number or email address.");
+const pin = z.string().regex(/^\d{4}$/, "Enter exactly four digits.");
+const password = z.string().min(1, "Enter your password.").max(72, "Password must be at most 72 characters.");
+function legacyEmailLogin(input: unknown) {
+  if (typeof input === "object" && input !== null && "email" in input && !("identifier" in input)) {
+    const { email, ...fields } = input;
+    return { ...fields, identifier: email };
+  }
+  return input;
+}
+
+export const staffLoginSchema = z.preprocess(legacyEmailLogin, z.object({
+  identifier: loginIdentifier, pin,
+}).strict());
 
 export const successSchema = z.object({ ok: z.literal(true) });
 
-export const adminLoginSchema = z.object({
-  email: z.string().trim().toLowerCase().max(254).email("Enter a valid email address."),
-  password: z.string().min(1, "Enter your password.").max(72, "Password must be at most 72 characters."),
-}).strict();
+export const adminLoginSchema = z.preprocess(legacyEmailLogin, z.object({
+  identifier: loginIdentifier, password,
+}).strict());
 
 const recordId = z.string().min(1).max(128);
 const reason = z.string().trim().min(3, "Give a reason of at least 3 characters.")
@@ -35,3 +47,42 @@ export const timesheetAddSchema = z.object({
   reason, requestId: z.uuid(),
 }).strict();
 export const timesheetSuccessSchema = z.object({ ok: z.literal(true) });
+
+const leaveDate = z.string().refine(validLeaveDate, "Enter a valid date between 2000 and 2199.");
+const optionalTime = z.union([z.literal(""), localTime]);
+const leaveFields = {
+  type: z.enum(["ANNUAL", "PERSONAL", "UNPAID", "OTHER"]),
+  allDay: z.boolean(),
+  startDate: leaveDate, endDate: leaveDate,
+  startTime: optionalTime, endTime: optionalTime,
+  returnDate: leaveDate, returnTime: optionalTime,
+  reason: z.string().trim().min(3, "Enter a reason of at least 3 characters.").max(1000, "Keep the reason to 1,000 characters."),
+};
+const leaveDetailsSchema = z.object(leaveFields).superRefine((input, ctx) => {
+  const issue = (message: string, field: keyof typeof leaveFields) =>
+    ctx.addIssue({ code: "custom", message, path: [field] });
+  if (input.endDate < input.startDate) issue("The end date must be on or after the start date.", "endDate");
+  if (!input.allDay && (input.startDate !== input.endDate || !input.startTime || !input.endTime)) {
+    issue("Partial-day leave needs one date and both start and end times.", "startTime");
+  }
+  if (input.allDay && (input.startTime || input.endTime)) issue("Whole-day leave must not include start or end times.", "startTime");
+  if (!input.allDay && !input.returnTime) issue("Enter your expected return time for partial-day leave.", "returnTime");
+  if (ctx.issues.length) return;
+  const { startsAt, endsAt } = leaveInterval(input);
+  if (endsAt <= startsAt) issue("The end time must be after the start time on the same day.", "endTime");
+  if (perthLocalToDate(`${input.returnDate}T${input.returnTime || "00:00"}`) < endsAt) {
+    issue("Your expected return must be on or after the end of your leave.", "returnDate");
+  }
+});
+
+export const leaveCreateSchema = leaveDetailsSchema.safeExtend({ requestId: z.uuid() }).strict();
+export const leaveEditSchema = leaveDetailsSchema.safeExtend({
+  leaveId: recordId, expectedVersion: z.number().int().positive(),
+}).strict();
+export const leaveCancelSchema = z.object({
+  leaveId: recordId, expectedVersion: z.number().int().positive(),
+}).strict();
+export const leaveReviewSchema = leaveCancelSchema.extend({
+  decision: z.enum(["APPROVED", "REJECTED"]),
+  note: z.string().trim().max(1000, "Keep your note to 1,000 characters."),
+}).strict();

@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
 }));
-vi.mock("@/lib/client-api", () => ({ requestJson: mocks.requestJson }));
-vi.mock("@/lib/session", () => ({ deleteSession: mocks.deleteSession }));
+vi.mock("@kenji/web/client-api", () => ({ requestJson: mocks.requestJson }));
+vi.mock("@leave/lib/session", () => ({ deleteAdminSession: mocks.deleteSession }));
 vi.mock("react", async (importOriginal) => {
   const original = await importOriginal<typeof import("react")>();
   return {
@@ -25,11 +25,11 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
-import LogoutButton from "@/components/LogoutButton";
-import { POST as logoutRoute } from "@/app/api/auth/logout/route";
+import LogoutButton from "@leave/components/LogoutButton";
+import { POST as logoutRoute } from "@leave/app/api/admin/auth/logout/route";
 
 function clickLogout() {
-  const root = LogoutButton() as ReactElement<{ children: [ReactElement<{ onClick: () => Promise<void> }>, unknown] }>;
+  const root = LogoutButton({ admin: true }) as ReactElement<{ children: [ReactElement<{ onClick: () => Promise<void> }>, unknown] }>;
   return root.props.children[0].props.onClick();
 }
 
@@ -39,7 +39,9 @@ beforeEach(() => {
 
 describe("admin logout", () => {
   it("deletes the session before returning success", async () => {
-    const response = await logoutRoute();
+    const response = await logoutRoute(new Request("http://localhost/api/admin/auth/logout", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+    }));
     expect(mocks.deleteSession).toHaveBeenCalledOnce();
     expect(await response.json()).toEqual({ ok: true });
   });
@@ -48,9 +50,11 @@ describe("admin logout", () => {
     mocks.requestJson.mockResolvedValue({ ok: true });
     await clickLogout();
     expect(mocks.requestJson).toHaveBeenCalledWith(
-      "/api/auth/logout", expect.anything(), { method: "POST" },
+      "/api/admin/auth/logout", expect.anything(), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      },
     );
-    expect(mocks.replace).toHaveBeenCalledWith("/login");
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/login");
     expect(mocks.refresh).toHaveBeenCalledOnce();
     expect(mocks.setPending.mock.calls).toEqual([[true], [false]]);
   });

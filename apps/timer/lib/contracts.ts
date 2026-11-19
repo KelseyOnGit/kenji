@@ -44,7 +44,3 @@ export const registrationResponseSchema = z.object({ status: z.enum(["PENDING", 
 export const errorResponseSchema = z.object({ error: z.string() });
 export type Staff = z.infer<typeof staffSchema>;
 export type PunchInput = z.infer<typeof punchSchema>;
-export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().max(254).email("Enter a valid email address."),
-  password: z.string().min(1, "Enter your password.").max(200),
-}).strict();

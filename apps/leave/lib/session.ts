@@ -76,3 +76,9 @@ export async function requireAdminApi() {
   if (!admin) throw new ApiError(401, "Please sign in as an admin.");
   return admin;
 }
+
+export async function requireStaffApi() {
+  const staff = await getStaff();
+  if (!staff) throw new ApiError(401, "Please sign in as a staff member.");
+  return staff;
+}

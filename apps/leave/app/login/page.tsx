@@ -8,8 +8,6 @@ import { staffLoginSchema, successSchema } from "@leave/lib/contracts";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [pin, setPin] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
@@ -18,7 +16,9 @@ export default function LoginPage() {
     event.preventDefault();
     if (submitting.current) return;
     setError("");
-    const parsed = staffLoginSchema.safeParse({ email, pin });
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const parsed = staffLoginSchema.safeParse({ identifier: fields.get("identifier"), pin: fields.get("pin") });
     if (!parsed.success) { setError(parsed.error.issues[0].message); return; }
     submitting.current = true;
     setPending(true);
@@ -33,7 +33,8 @@ export default function LoginPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Sign in failed. Please try again.");
     } finally {
-      setPin("");
+      const pinInput = form.elements.namedItem("pin");
+      if (pinInput instanceof HTMLInputElement) pinInput.value = "";
       setPending(false);
       submitting.current = false;
     }
@@ -46,13 +47,13 @@ export default function LoginPage() {
         <p className="eyebrow"></p>
         <h1>Staff sign in.</h1>
 
-        <p>Use your registered email and the same four-digit PIN you use at the clock.</p>
+        <p>Use your registered phone number or email and the same four-digit PIN you use at the clock.</p>
         {error && <p className="error" role="alert">{error}</p>}
-        <form onSubmit={login} aria-busy={pending}>
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" autoComplete="username" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} disabled={pending} />
+        <form method="post" onSubmit={login} aria-busy={pending}>
+          <label htmlFor="identifier">Phone number or email</label>
+          <input id="identifier" name="identifier" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={254} disabled={pending} />
           <label htmlFor="pin">Four-digit PIN</label>
-          <input id="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4}" minLength={4} maxLength={4} required value={pin} onChange={event => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} disabled={pending} />
+          <input id="pin" name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{4}" minLength={4} maxLength={4} required disabled={pending} />
           <button type="submit" className="submit" disabled={pending}>{pending ? "Signing in..." : "Sign in"}</button>
         </form>
         <p className="login-switch">Administrator? <Link href="/admin/login">Admin sign in</Link></p>

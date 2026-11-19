@@ -25,6 +25,28 @@ enum UserStatus {
   INACTIVE
 }
 
+enum LeaveType {
+  ANNUAL
+  PERSONAL
+  UNPAID
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveAction {
+  SUBMITTED
+  UPDATED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model User {
   id             String          @id @default(cuid())
   displayName    String
@@ -36,11 +58,15 @@ model User {
   contactNumber  String?
   email          String?         @unique
   passwordHash   String?
+  phone          String?         @unique   // E.164, e.g. +61412345678; used for sign-in
 
   shifts    Shift[]
   payRates  PayRate[]
   staffSessions StaffSession[]
   shiftAudits ShiftAudit[] @relation("ShiftAuditActor")
+  leaveRequests LeaveRequest[] @relation("LeaveRequester")
+  leaveDecisions LeaveRequest[] @relation("LeaveReviewer")
+  leaveEvents LeaveEvent[] @relation("LeaveEventActor")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -109,4 +135,45 @@ model ShiftAudit {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([shiftId, createdAt])
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Restrict)
+  type          LeaveType
+  status        LeaveStatus @default(PENDING)
+  allDay        Boolean
+  startsAt      DateTime    @db.Timestamptz(3)
+  endsAt        DateTime    @db.Timestamptz(3)
+  returnDate    DateTime    @db.Date
+  returnTime    String?
+  reason        String
+  requestId     String      @unique @db.Uuid
+  version       Int         @default(1)
+  reviewerId    String?
+  reviewer      User?       @relation("LeaveReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  decisionNote  String?
+  decidedAt     DateTime?   @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
+  events        LeaveEvent[]
+
+  @@index([userId, startsAt])
+  @@index([status, startsAt])
+}
+
+model LeaveEvent {
+  id        String       @id @default(cuid())
+  leaveId   String
+  leave     LeaveRequest @relation(fields: [leaveId], references: [id], onDelete: Restrict)
+  actorId   String
+  actor     User         @relation("LeaveEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  action    LeaveAction
+  before    Json?
+  after     Json
+  note      String?
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([leaveId, createdAt])
 }

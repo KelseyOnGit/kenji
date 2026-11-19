@@ -41,6 +41,7 @@ beforeAll(async () => {
   database = await PGlite.create();
   await database.exec(await readFile(new URL("../packages/database/prisma/migrations/20261111040000_initial_registration_kiosk/migration.sql", import.meta.url), "utf8"));
   await database.exec(await readFile(new URL("../packages/database/prisma/migrations/20261116080000_staff_login/migration.sql", import.meta.url), "utf8"));
+  await database.exec(await readFile(new URL("../packages/database/prisma/migrations/20261118023409_user_phone/migration.sql", import.meta.url), "utf8"));
   server = new PGLiteSocketServer({ db: database, port: 0, host: "127.0.0.1" });
   await server.start();
   process.env.DATABASE_URL = `postgresql://postgres:postgres@${server.getServerConn()}/postgres?connection_limit=1&sslmode=disable`;
@@ -88,6 +89,38 @@ describe("shared staff identity and leave login", () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
+  it("accepts local and international phone formats with the exact staff PIN", async () => {
+    const user = await staffWithEmail();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: "+61412345678" } });
+    for (const identifier of ["0412 345 678", "+61 (0) 412-345-678", "61412345678"]) {
+      expect((await login({ identifier, pin: "0123" })).status).toBe(200);
+      expect((await getStaff())?.id).toBe(user.id);
+    }
+    expect(await prisma.staffLoginWindow.count()).toBe(2);
+    expect((await login({ identifier: "0412345678", pin: "9999" })).status).toBe(401);
+  });
+
+  it("shares the staff attempt limit across phone and email and rejects inactive phone logins", async () => {
+    const user = await staffWithEmail();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: "+61412345678" } });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const identifier = attempt % 2 ? credentials.email : "0412 345 678";
+      expect((await login({ identifier, pin: "9999" })).status).toBe(401);
+    }
+    expect((await login()).status).toBe(429);
+    expect((await login({ identifier: "+61412345678", pin: "0123" })).status).toBe(429);
+    await prisma.staffLoginWindow.deleteMany();
+    await prisma.user.update({ where: { id: user.id }, data: { status: "INACTIVE" } });
+    expect((await login({ identifier: "0412345678", pin: "0123" })).status).toBe(401);
+  });
+
+  it("rejects malformed or unregistered phones without granting access", async () => {
+    expect((await login({ identifier: "not a phone", pin: "0123" })).status).toBe(400);
+    expect(await prisma.staffLoginWindow.count()).toBe(0);
+    expect((await login({ identifier: "0412345678", pin: "0123" })).status).toBe(401);
+    expect(await getStaff()).toBeNull();
+  });
+
   describe("leave admin sign-in", () => {
     const credentials = { email: "admin@example.com", password: "admin-test-password" };
     const login = (body: unknown = credentials) => adminLogin(request("/api/admin/auth/login", body));
@@ -117,6 +150,36 @@ describe("shared staff identity and leave login", () => {
       expect((await login({ ...credentials, password: "0123" })).status).toBe(401);
     });
 
+    it("accepts an admin phone with a password and preserves leading zeros and spaces", async () => {
+      const user = await adminAccount();
+      const password = " 0012 test ";
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { phone: "+61412345678", passwordHash: await bcrypt.hash(password, 10) },
+      });
+      expect((await login({ identifier: "0412 345 678", password })).status).toBe(200);
+      expect((await getAdmin())?.id).toBe(user.id);
+      expect(cookieJar.has("kenji_leave_session")).toBe(false);
+      expect((await login({ identifier: "+61 412 345 678", password: password.trim() })).status).toBe(401);
+      expect(await prisma.staffLoginWindow.count()).toBe(2);
+      expect((await staffLogin(request("/api/auth/login", { identifier: "0412345678", pin: "0123" }))).status).toBe(401);
+      await prisma.user.update({ where: { id: user.id }, data: { status: "INACTIVE" } });
+      expect((await login({ identifier: "0412345678", password })).status).toBe(401);
+    });
+
+    it("shares the admin account limit across phone and email", async () => {
+      const user = await adminAccount();
+      await prisma.user.update({ where: { id: user.id }, data: { phone: "+61412345678" } });
+      for (let attempt = 0; attempt < 5; attempt++) {
+        expect((await login({ identifier: attempt % 2 ? credentials.email : "0412345678", password: "wrong" })).status).toBe(401);
+      }
+      const response = await login({ identifier: "+61 (0) 412 345 678", password: credentials.password });
+      expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("900");
+      expect((await login()).status).toBe(429);
+      expect(await getAdmin()).toBeNull();
+    });
+
     it.each(["PENDING", "INACTIVE", "STAFF", "missing", "no-password"])("rejects %s accounts without creating a session", async state => {
       const user = await adminAccount();
       if (state === "missing") await prisma.user.delete({ where: { id: user.id } });
@@ -126,7 +189,7 @@ describe("shared staff identity and leave login", () => {
       const response = await login();
       expect(response.status).toBe(401);
       expect(await response.json()).toEqual({
-        error: "Incorrect email or password, or this account does not have admin access. Please contact us if you need help.",
+        error: "Incorrect phone number, email or password, or this account does not have admin access. Please contact us if you need help.",
       });
       expect(await getAdmin()).toBeNull();
       expect(await prisma.staffSession.count()).toBe(0);
@@ -204,7 +267,7 @@ describe("shared staff identity and leave login", () => {
       expect(response.status).toBe(429);
       expect(response.headers.get("Retry-After")).toBe("900");
       expect((await staffLogin(request("/api/auth/login", { email: credentials.email, pin: "0123" }))).status).toBe(401);
-      expect(await prisma.staffLoginWindow.count()).toBe(2);
+      expect(await prisma.staffLoginWindow.count()).toBe(4);
       await prisma.staffLoginWindow.updateMany({ data: { expiresAt: new Date("2000-01-01") } });
       expect((await login()).status).toBe(200);
     });
@@ -242,7 +305,7 @@ describe("shared staff identity and leave login", () => {
     else await prisma.user.update({ where: { id: user.id }, data: { status: state as "PENDING" | "INACTIVE" } });
     const response = await login();
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "Incorrect email or PIN, or your profile is not active. Please contact us if you need help." });
+    expect(await response.json()).toEqual({ error: "Incorrect phone number, email or PIN, or your profile is not active. Please contact us if you need help." });
     expect(await prisma.staffSession.count()).toBe(0);
   });
 
