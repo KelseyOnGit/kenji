@@ -159,7 +159,7 @@ export default function Home() {
       <header className="topbar">
         <div className="brand" aria-label="SSS Auto Parts team clock">
           <span className="brand-symbol" aria-hidden="true"><ClockIcon /></span>
-          <span className="brand-name">SSS<span>Parts</span></span>
+          <span className="brand-name">SSS<span>Auto Parts</span></span>
           <span className="brand-divider" /><span className="brand-product">Team clock</span>
         </div>
         <Link className="nav-link" href="/register">New staff? Register</Link>
@@ -276,7 +276,7 @@ export default function Home() {
           <div className="checkin-footer">Your name. Your PIN. Your time.</div>
         </section>
       </div>
-      <footer className="page-footer"><span>SSS Parts / Team clock</span><span>Shared iPad kiosk &middot; All times AWST</span></footer>
+      <footer className="page-footer"><span>SSS Auto Parts / Team clock</span><span>Shared iPad kiosk &middot; All times AWST</span></footer>
     </main>
   );
 }

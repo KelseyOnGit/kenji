@@ -4,9 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@leave/components/LogoutButton";
 
-const upcomingItems = ["Staff Profiles", "Pending approval"];
-
-export default function AdminSidebar({ displayName }: { displayName: string }) {
+export default function AdminSidebar({ displayName, pendingStaff }: { displayName: string; pendingStaff: number }) {
   const pathname = usePathname();
   return (
     <aside className="admin-sidebar">
@@ -16,11 +14,10 @@ export default function AdminSidebar({ displayName }: { displayName: string }) {
       </div>
       <nav className="admin-nav" aria-label="Admin navigation">
         <Link href="/admin" aria-current={pathname === "/admin" ? "page" : undefined}>Dashboard</Link>
-        {upcomingItems.map(label => (
-          <span key={label} className="admin-nav-upcoming" aria-disabled="true">
-            <span>{label}</span><span className="upcoming-label">Soon</span>
-          </span>
-        ))}
+        <span className="admin-nav-upcoming" aria-disabled="true"><span>Staff Profiles</span><span className="upcoming-label">Soon</span></span>
+        <Link href="/admin/pending-approval" aria-current={pathname.startsWith("/admin/pending-approval") ? "page" : undefined}>
+          <span>Pending approval</span>{pendingStaff > 0 && <span className="upcoming-label">{pendingStaff}</span>}
+        </Link>
         <Link href="/admin/leave" aria-current={pathname.startsWith("/admin/leave") ? "page" : undefined}>Leave Requests</Link>
         <Link href="/admin/timesheets" aria-current={pathname.startsWith("/admin/timesheets") ? "page" : undefined}>Timesheets</Link>
       </nav>

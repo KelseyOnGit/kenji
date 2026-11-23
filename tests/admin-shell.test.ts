@@ -9,6 +9,7 @@ vi.mock("@kenji/database", () => ({
     $queryRaw: vi.fn().mockResolvedValue([{ now: new Date("2026-01-05T00:00:00Z") }]),
     shift: { count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null) },
     leaveRequest: { count: vi.fn().mockResolvedValue(0) },
+    user: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 vi.mock("@leave/lib/session", () => ({ requireAdmin: mocks.requireAdmin }));
@@ -28,15 +29,17 @@ beforeEach(() => {
 
 describe("leave admin shell", () => {
   it("shows the requested menu without dead links or fabricated badges", () => {
-    const html = renderToStaticMarkup(createElement(AdminSidebar, { displayName: "Test Admin" }));
+    const html = renderToStaticMarkup(createElement(AdminSidebar, { displayName: "Test Admin", pendingStaff: 2 }));
     for (const label of ["Dashboard", "Staff Profiles", "Pending approval", "Leave Requests", "Timesheets"]) {
       expect(html).toContain(label);
     }
     expect(html).toContain('href="/admin"');
     expect(html).toContain('aria-current="page"');
-    expect(html.match(/aria-disabled="true"/g)).toHaveLength(2);
-    expect(html.match(/>Soon</g)).toHaveLength(2);
-    expect(html.match(/href=/g)).toHaveLength(3);
+    expect(html.match(/aria-disabled="true"/g)).toHaveLength(1);
+    expect(html.match(/>Soon</g)).toHaveLength(1);
+    expect(html.match(/href=/g)).toHaveLength(4);
+    expect(html).toContain('href="/admin/pending-approval"');
+    expect(html).toContain(">2</");
     expect(html).toContain('href="/admin/leave"');
     expect(html).toContain('href="/admin/timesheets"');
     expect(html).toContain("Test Admin");
@@ -45,7 +48,7 @@ describe("leave admin shell", () => {
 
   it("highlights Timesheets instead of Dashboard on the timesheet page", () => {
     mocks.pathname = "/admin/timesheets";
-    const html = renderToStaticMarkup(createElement(AdminSidebar, { displayName: "Admin" }));
+    const html = renderToStaticMarkup(createElement(AdminSidebar, { displayName: "Admin", pendingStaff: 0 }));
     expect(html).toMatch(/<a(?=[^>]*href="\/admin\/timesheets")(?=[^>]*aria-current="page")[^>]*>/);
     expect(html).not.toMatch(/<a(?=[^>]*href="\/admin")(?=[^>]*aria-current="page")[^>]*>/);
   });

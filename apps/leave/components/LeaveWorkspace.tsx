@@ -53,3 +53,5 @@ export default async function LeaveWorkspace({ params, staffId }: { params: Leav
 
   return <LeaveActionsProvider>{content}</LeaveActionsProvider>;
 }
+
+

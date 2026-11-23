@@ -86,3 +86,6 @@ export const leaveReviewSchema = leaveCancelSchema.extend({
   note: z.string().trim().max(1000, "Keep your note to 1,000 characters."),
 }).strict();
 
+export const approveStaffSchema = z.object({
+  userId: z.string().min(1).max(128),
+}).strict();

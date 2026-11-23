@@ -71,6 +71,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([status, displayName])
+
+  approvedAt     DateTime? @db.Timestamptz(3)
+  approvedById   String?
+  approvedBy     User?     @relation("UserApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  approvedUsers  User[]    @relation("UserApprover")
 }
 
 model StaffSession {

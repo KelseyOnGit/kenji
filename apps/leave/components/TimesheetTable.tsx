@@ -138,7 +138,6 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
       setError(error instanceof Error ? error.message : "The correction could not be saved. Please try again.");
     } finally { submitting.current = false; setPending(false); }
   }
-
   return (
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="fix-title"
       onCancel={event => { if (pending) event.preventDefault(); else onClose(); }}>
@@ -148,6 +147,7 @@ function FixDialog({ selection, staff, onClose, onSaved }: { selection: Selectio
       {error && <p className={styles.error} role="alert">{error}</p>}
       <form onSubmit={submit} className={styles.fixForm} aria-busy={pending}>
         <fieldset disabled={pending}>
+          
           {selection.kind === "add" ? <>
             <label>Staff member<select name="userId" required defaultValue={selection.userId}>
                     <option value="">Choose staff member</option>{staff.map(user => <option key={user.id} value={user.id}>{user.displayName}</option>)}

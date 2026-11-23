@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Team Clock | SSS Auto Parts",
-  description: "Kiosk clock-in and clock-out for SSS Parts staff.",
+  description: "Kiosk clock-in and clock-out for SSS Auto Parts staff.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

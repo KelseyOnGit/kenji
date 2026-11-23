@@ -57,7 +57,7 @@ export default function RegisterPage() {
   return (
     <main className="registration-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-name">SSS<span>Parts</span></span><span className="brand-divider" /><span className="brand-product">Staff registration</span></div>
+        <div className="brand"><span className="brand-name">SSS<span>Auto Parts</span></span><span className="brand-divider" /><span className="brand-product">Staff registration</span></div>
         <Link className="nav-link" href="/">Back to clock</Link>
       </header>
       <section className="registration-card" aria-labelledby="registration-title">
@@ -95,10 +95,10 @@ export default function RegisterPage() {
                     <input className="text-input" id="confirm-pin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{4}" minLength={4} maxLength={4} value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, "").slice(0, 4))} required />
                   </div>
                 </div>
-                <label htmlFor="contactNumber">Contact number <span>(optional)</span></label>
-                <input className="text-input" id="contactNumber" name="contactNumber" type="tel" autoComplete="tel" maxLength={30} />
-                <label htmlFor="email">Email <span>(optional)</span></label>
-                <input className="text-input" id="email" name="email" type="email" autoComplete="email" maxLength={254} />
+                <label htmlFor="contactNumber">Contact number <span>(required)</span></label>
+                <input className="text-input" id="contactNumber" name="contactNumber" type="tel" autoComplete="tel" maxLength={30} required/>
+                <label htmlFor="email">Email <span>(required)</span></label>
+                <input className="text-input" id="email" name="email" type="email" autoComplete="email" maxLength={254} required/>
                 <button className="primary-button" type="submit">{pending ? "Registering..." : "Register"}</button>
               </fieldset>
             </form>
