@@ -45,4 +45,12 @@ describe("weekly timesheet table", () => {
     expect(html).toContain("+ Add shift");
     expect(html).toContain("No shifts match");
   });
+
+  it("marks Western Australia public holidays in weekday headers", () => {
+    const html = renderToStaticMarkup(createElement(TimesheetTable, {
+      rows: [], staff: [], week: "2026-06-01", now: "2026-06-01T00:00:00Z",
+    }));
+    expect(html).toContain("Western Australia Day");
+    expect(html).toContain("Public holiday");
+  });
 });

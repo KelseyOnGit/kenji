@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { displayLeaveDate, leaveDates, monthWindow, type CalendarLeave } from "@leave/lib/leave";
 import { DAY_MS, perthLocalToDate } from "@leave/lib/timesheets";
+import { waPublicHoliday } from "@leave/lib/public-holidays";
 import styles from "./leave.module.css";
 
 export default function LeaveCalendar({ month, leaves, basePath }: {
@@ -30,10 +31,12 @@ export default function LeaveCalendar({ month, leaves, basePath }: {
                 if (day < 1 || day > window.days) return <div key={weekday} role="cell" className={styles.blank} />;
                 const date = `${month}-${String(day).padStart(2, "0")}`;
                 const start = perthLocalToDate(`${date}T00:00`).getTime();
+                const holiday = waPublicHoliday(date);
                 const entries = leaves.filter(leave => new Date(leave.startsAt).getTime() < start + DAY_MS && new Date(leave.endsAt).getTime() > start);
                 return (
-                  <div key={weekday} role="cell" className={`${styles.day} ${weekday > 4 ? styles.weekend : ""}`} aria-label={displayLeaveDate(date)}>
+                  <div key={weekday} role="cell" className={`${styles.day} ${weekday > 4 ? styles.weekend : ""} ${holiday ? styles.holiday : ""}`} aria-label={`${displayLeaveDate(date)}${holiday ? `, ${holiday.name}` : ""}`}>
                     <time dateTime={date}>{day}</time>
+                    {holiday && <div className={styles.holidayLabel}>{holiday.name}</div>}
                     {entries.map(leave => {
                       const times = leaveDates(leave);
                       return <div className={styles.absence} key={leave.id}>{leave.name}{!leave.allDay && <small>{times.startTime} - {times.endTime}</small>}</div>;

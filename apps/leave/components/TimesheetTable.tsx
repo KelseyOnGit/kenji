@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { newRequestId, requestJson } from "@kenji/web/client-api";
 import { timesheetSuccessSchema } from "@leave/lib/contracts";
 import { DAY_MS, formatHours, missingClockOut, perthDisplay, perthLocalToDate, shiftMinutes, toPerthLocal } from "@leave/lib/timesheets";
+import { waPublicHoliday } from "@leave/lib/public-holidays";
 import styles from "@leave/app/admin/(portal)/timesheets/timesheets.module.css";
 
 type Snapshot = { clockIn: string; clockOut: string | null };
@@ -31,7 +32,12 @@ export default function TimesheetTable({ rows, staff, week, now, initialSearch =
   const start = perthLocalToDate(`${week}T00:00`);
   const days = Array.from({ length: 5 }, (_, index) => {
     const date = new Date(start.getTime() + index * DAY_MS);
-    return { date: toPerthLocal(date).slice(0, 10), label: perthDisplay(date, { weekday: "short", day: "numeric", month: "short" }) };
+    const localDate = toPerthLocal(date).slice(0, 10);
+    return {
+      date: localDate,
+      label: perthDisplay(date, { weekday: "short", day: "numeric", month: "short" }),
+      holiday: waPublicHoliday(localDate),
+    };
   });
   const weekdayRows = rows.map(user => ({
     ...user, shifts: user.shifts.filter(shift => days.some(day => toPerthLocal(new Date(shift.clockIn)).startsWith(day.date))),
@@ -40,6 +46,7 @@ export default function TimesheetTable({ rows, staff, week, now, initialSearch =
     && user.displayName.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
     && (!problems || user.shifts.some(shift => missingClockOut(new Date(shift.clockIn), shift.clockOut ? new Date(shift.clockOut) : null, new Date(now)))));
   const weekendCount = rows.reduce((sum, user, index) => sum + user.shifts.length - weekdayRows[index].shifts.length, 0);
+  const weekHolidays = days.flatMap(day => day.holiday ? [`${day.label}: ${day.holiday.name}`] : []);
   const close = () => setSelection(null);
   return (
     <>
@@ -51,11 +58,12 @@ export default function TimesheetTable({ rows, staff, week, now, initialSearch =
         <button type="button" onClick={() => setSelection({ kind: "add", userId: "", date: week })} disabled={!staff.length}>+ Add shift</button>
       </div>
       {weekendCount > 0 && <p className={styles.context}>{weekendCount} weekend shift(s) are saved but excluded from this weekday view and its totals.</p>}
+      {weekHolidays.length > 0 && <p className={styles.holidaySummary}>Public holiday: {weekHolidays.join("; ")}</p>}
       {saved && <p role="status">Correction saved with its edit history.</p>}
       <div className={styles.tableWrap} role="region" aria-label="Weekly timesheets" tabIndex={0}>
         <table className={styles.table}>
           <caption className={styles.srOnly}>Weekday worked hours by clock-in day</caption>
-          <thead><tr><th scope="col">Staff member</th>{days.map(day => <th scope="col" key={day.date}>{day.label}</th>)}<th scope="col">Weekly total</th></tr></thead>
+          <thead><tr><th scope="col">Staff member</th>{days.map(day => <th scope="col" className={day.holiday ? styles.holidayHeader : undefined} key={day.date}>{day.label}{day.holiday && <span className={styles.holidayLabel}>{day.holiday.name}</span>}</th>)}<th scope="col">Weekly total</th></tr></thead>
           <tbody>{visibleRows.map(user => (
             <tr key={user.id}>
               <th scope="row">{user.displayName}{user.status === "INACTIVE" && <span className={styles.marker}>Inactive</span>}</th>
@@ -73,7 +81,7 @@ export default function TimesheetTable({ rows, staff, week, now, initialSearch =
                     </button>;
                   })}
                   {shifts.length > 1 && <div className={styles.dayTotal}>Total {formatHours(total(shifts))}</div>}
-                  {!shifts.length && <span className={styles.emptyDay}>—</span>}
+                  {!shifts.length && <span className={day.holiday ? styles.holidayEmpty : styles.emptyDay}>{day.holiday ? "Public holiday" : "—"}</span>}
                 </div></td>;
               })}
               <td className={styles.weekTotal}>{formatHours(total(user.shifts))}</td>

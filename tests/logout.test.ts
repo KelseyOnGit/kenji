@@ -62,6 +62,7 @@ describe("admin logout", () => {
   it("shows a failure without navigating when logout fails", async () => {
     mocks.requestJson.mockRejectedValue(new Error("Connection lost."));
     await clickLogout();
+    
     expect(mocks.setError).toHaveBeenLastCalledWith("Connection lost.");
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();

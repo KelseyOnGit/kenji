@@ -22,6 +22,11 @@ function calendarDto(leave: Prisma.LeaveRequestGetPayload<{ select: typeof calen
     returnDate: leave.returnDate.toISOString().slice(0, 10), returnTime: leave.returnTime,
   };
 }
+ 
+/** How many of this staff member's own requests are still waiting for a decision. */
+export function pendingCount(userId: string) {
+  return prisma.leaveRequest.count({ where: { userId, status: "PENDING" } });
+}
 
 export async function approvedCalendar(month: string) {
   const { start, end } = monthWindow(month);
@@ -58,3 +63,4 @@ export async function privateRequests(options: { staffId?: string; status?: Leav
   }));
   return { rows, count, pages, page };
 }
+ 

@@ -133,7 +133,6 @@ model ShiftAudit {
   after     Json
   reason    String
   createdAt DateTime @default(now()) @db.Timestamptz(3)
-
   @@index([shiftId, createdAt])
 }
 
@@ -158,7 +157,6 @@ model LeaveRequest {
   createdAt     DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
   events        LeaveEvent[]
-
   @@index([userId, startsAt])
   @@index([status, startsAt])
 }

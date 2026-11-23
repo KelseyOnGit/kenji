@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useLeaveActions } from "./LeaveActions";
 import { useRouter } from "next/navigation";
 import { requestJson } from "@kenji/web/client-api";
 import { leaveCreateSchema, leaveEditSchema, successSchema } from "@leave/lib/contracts";
@@ -18,6 +19,7 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
 }) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
+  const requestsDialog = useRef<HTMLDialogElement>(null);
   const submitting = useRef(false);
   const requestId = useRef<string | null>(null);
   const [editing, setEditing] = useState<PrivateLeave | null>(null);
@@ -29,8 +31,9 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [allDay, setAllDay] = useState(true);
+  const leaveActions = useLeaveActions();
 
-  function openForm(leave: PrivateLeave | null, cancel = false) {
+  const openForm = useCallback((leave: PrivateLeave | null, cancel = false) => {
     setEditing(leave);
     setCancelling(cancel ? leave : null);
     setAllDay(leave?.allDay ?? true);
@@ -40,6 +43,14 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
     requestId.current = submissionId;
     setDialogOpen(true);
     dialog.current?.showModal();
+  }, [submissionId]);
+
+  useEffect(() => leaveActions?.registerNewRequest(() => openForm(null)), [leaveActions, openForm]);
+  useEffect(() => leaveActions?.registerRequests(() => requestsDialog.current?.showModal()), [leaveActions]);
+
+  function openRequestDialog(leave: PrivateLeave, cancel = false) {
+    requestsDialog.current?.close();
+    openForm(leave, cancel);
   }
 
   async function send(path: string, body: unknown, message: string, close = false) {
@@ -93,11 +104,15 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
 
   const dates = editing ? leaveDates(editing) : null;
   return (
-    <section className={styles.panel} aria-labelledby="requests-heading">
+    <>
+    <dialog ref={requestsDialog} id="my-requests" className={`${styles.dialog} ${styles.requestsDialog}`} aria-labelledby="requests-heading">
       <header className={styles.sectionHeader}>
         <div><h2 id="requests-heading">{admin ? "Review leave requests" : "My leave requests"}</h2>
         </div>
-        {!admin && <button className={styles.primary} disabled={pending || usedSubmissionId === submissionId} onClick={() => openForm(null)}>Request leave</button>}
+        <div className={styles.actions}>
+          {!admin && <button className={styles.primary} disabled={pending || usedSubmissionId === submissionId} onClick={() => openForm(null)}>Request leave</button>}
+          <button type="button" className={styles.secondary} disabled={pending} onClick={() => requestsDialog.current?.close()}>Close</button>
+        </div>
       </header>
       {notice && <p className={styles.success} role="status">{notice}</p>}
       {error && !dialogOpen && <p className={styles.error} role="alert">{error}</p>}
@@ -142,8 +157,8 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
               )}
               {!admin && ["PENDING", "APPROVED"].includes(leave.status) && (
                 <div className={styles.actions}>
-                  {leave.status === "PENDING" && <button className={styles.secondary} disabled={pending} onClick={() => openForm(leave)}>Edit request</button>}
-                  <button className={styles.textButton} disabled={pending} onClick={() => openForm(leave, true)}>Cancel request</button>
+                  {leave.status === "PENDING" && <button className={styles.secondary} disabled={pending} onClick={() => openRequestDialog(leave)}>Edit request</button>}
+                  <button className={styles.textButton} disabled={pending} onClick={() => openRequestDialog(leave, true)}>Cancel request</button>
                 </div>
               )}
               <details className={styles.history}><summary>Request history</summary>
@@ -154,6 +169,7 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
           );
         })}
       </div>
+    </dialog>
       {!admin && (
         <dialog ref={dialog} className={styles.dialog} aria-labelledby="leave-dialog-title" onClose={() => setDialogOpen(false)} onCancel={event => { if (pending) event.preventDefault(); }}>
           <header className={styles.sectionHeader}>
@@ -191,6 +207,6 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
           )}
         </dialog>
       )}
-    </section>
+    </>
   );
 }

@@ -4,10 +4,22 @@ import {
   perthWeekStart, shiftMinutes, toPerthLocal,
 } from "@leave/lib/timesheets";
 import { timesheetAddSchema, timesheetClockOutSchema } from "@leave/lib/contracts";
+import { waPublicHoliday, waPublicHolidays } from "@leave/lib/public-holidays";
 
 afterEach(() => vi.useRealTimers());
 
 describe("Perth timesheets", () => {
+  it("calculates Western Australia public holidays and observed days", () => {
+    expect(waPublicHoliday("2026-01-01")).toMatchObject({ name: "New Year's Day" });
+    expect(waPublicHoliday("2026-03-02")).toMatchObject({ name: "Labour Day" });
+    expect(waPublicHoliday("2026-04-03")).toMatchObject({ name: "Good Friday" });
+    expect(waPublicHoliday("2026-04-27")?.name).toContain("Anzac Day (additional day)");
+    expect(waPublicHoliday("2026-06-01")).toMatchObject({ name: "Western Australia Day" });
+    expect(waPublicHoliday("2026-09-28")).toMatchObject({ name: "King's Birthday" });
+    expect(waPublicHoliday("2026-12-28")?.name).toContain("Boxing Day (additional day)");
+    expect(waPublicHolidays(2027).filter(holiday => holiday.date === "2027-12-27")).toHaveLength(1);
+  });
+
   it.each([
     ["2026-11-16T00:00:00+08:00", "2026-11-15T16:00:00.000Z"],
     ["2026-11-22T23:59:00+08:00", "2026-11-15T16:00:00.000Z"],
