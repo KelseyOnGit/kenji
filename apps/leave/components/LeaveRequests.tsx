@@ -153,7 +153,7 @@ export default function LeaveRequests({ requests, submissionId, admin = false }:
                     <button className={styles.primary} type="submit" value="APPROVED" disabled={pending}>Approve</button>
                     <button className={styles.secondary} type="submit" value="REJECTED" disabled={pending}>Reject</button>
                   </div>
-                </form>
+                                  </form>
               )}
               {!admin && ["PENDING", "APPROVED"].includes(leave.status) && (
                 <div className={styles.actions}>

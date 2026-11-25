@@ -177,6 +177,5 @@ model LeaveEvent {
   after     Json
   note      String?
   createdAt DateTime     @default(now()) @db.Timestamptz(3)
-
   @@index([leaveId, createdAt])
-}
+  }

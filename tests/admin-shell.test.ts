@@ -35,9 +35,10 @@ describe("leave admin shell", () => {
     }
     expect(html).toContain('href="/admin"');
     expect(html).toContain('aria-current="page"');
-    expect(html.match(/aria-disabled="true"/g)).toHaveLength(1);
-    expect(html.match(/>Soon</g)).toHaveLength(1);
-    expect(html.match(/href=/g)).toHaveLength(4);
+    expect(html).toContain('href="/admin/staff"');
+    expect(html.match(/aria-disabled="true"/g)).toBeNull();
+    expect(html.match(/>Soon</g)).toBeNull();
+    expect(html.match(/href=/g)).toHaveLength(5);
     expect(html).toContain('href="/admin/pending-approval"');
     expect(html).toContain(">2</");
     expect(html).toContain('href="/admin/leave"');

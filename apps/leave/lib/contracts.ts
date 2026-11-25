@@ -2,6 +2,7 @@ import { z } from "zod";
 import { perthLocalToDate } from "./timesheets";
 import { parseLoginIdentifier } from "@kenji/web/identity";
 import { leaveInterval, validLeaveDate } from "./leave";
+import { normalizePhone } from "@kenji/web/identity";
 
 const loginIdentifier = z.string().trim().max(254)
   .refine(value => parseLoginIdentifier(value) !== null, "Enter a valid phone number or email address.");
@@ -89,3 +90,23 @@ export const leaveReviewSchema = leaveCancelSchema.extend({
 export const approveStaffSchema = z.object({
   userId: z.string().min(1).max(128),
 }).strict();
+
+//Admin: edit a staff member's details
+// Admin: edit a staff member's details
+const personName = z.string().trim().min(2, "Enter at least two characters.").max(120, "Use no more than 120 characters.")
+  .regex(/^[^\u0000-\u001f\u007f]+$/, "Names cannot contain control characters.")
+  .transform(value => value.replace(/\s+/g, " "));
+const blankToNull = (value: unknown) => typeof value === "string" && value.trim() === "" ? null : value;
+export const updateStaffSchema = z.object({
+  userId: z.string().min(1).max(128),
+  expectedUpdatedAt: z.iso.datetime(),
+  legalName: personName,
+  displayName: personName,
+  phone: z.preprocess(blankToNull, z.string().trim().max(30)
+    .refine(value => normalizePhone(value) !== null, "Enter a valid Australian mobile or phone number, e.g. 0412 345 678.").nullable()),
+  email: z.preprocess(blankToNull, z.string().trim().toLowerCase().max(254).email("Enter a valid email address.").nullable()),
+  employmentType: z.enum(["FULL_TIME", "CASUAL"], "Choose full-time or casual."),
+}).strict().refine(value => value.phone !== null || value.email !== null, {
+  message: "Keep at least a phone number or an email, so they can sign in to the staff portal.", path: ["phone"],
+});
+export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;

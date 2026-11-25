@@ -14,7 +14,7 @@ export default function AdminSidebar({ displayName, pendingStaff }: { displayNam
       </div>
       <nav className="admin-nav" aria-label="Admin navigation">
         <Link href="/admin" aria-current={pathname === "/admin" ? "page" : undefined}>Dashboard</Link>
-        <span className="admin-nav-upcoming" aria-disabled="true"><span>Staff Profiles</span><span className="upcoming-label">Soon</span></span>
+        <Link href="/admin/staff" aria-current={pathname.startsWith("/admin/staff") ? "page" : undefined}>Staff Profiles</Link>
         <Link href="/admin/pending-approval" aria-current={pathname.startsWith("/admin/pending-approval") ? "page" : undefined}>
           <span>Pending approval</span>{pendingStaff > 0 && <span className="upcoming-label">{pendingStaff}</span>}
         </Link>

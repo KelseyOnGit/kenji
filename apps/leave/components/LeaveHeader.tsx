@@ -18,6 +18,7 @@ export default function LeaveHeader({ pendingCount, admin = false }: { pendingCo
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" />
           </svg>
+          
           {admin ? "Review leave requests" : "My leave requests"}
           {pendingCount > 0 && <>
             <span className={styles.badge} aria-hidden="true">{pendingCount}</span>
