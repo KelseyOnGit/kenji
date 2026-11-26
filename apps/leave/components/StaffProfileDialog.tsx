@@ -2,10 +2,49 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { StaffProfile } from "@leave/lib/staff-data";
+import { displayLeaveDate, leaveDates, leaveStatuses, leaveTypes } from "@leave/lib/leave";
 import styles from "@leave/app/admin/(portal)/staff/staff.module.css";
 
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+
+export function StaffProfileLeave({ requests }: { requests: StaffProfile["leave"] }) {
+  return (
+    <section className={styles.leaveSection} aria-labelledby="profile-leave-title">
+      <header className={styles.leaveSummary}>
+        <div><h3 id="profile-leave-title">Leave requests</h3><p>Showing the 25 most recent requests.</p></div>
+        <span className={styles.badge}>{requests.filter(request => request.status === "PENDING").length} pending</span>
+      </header>
+      {requests.length === 0 ? (
+        <div className={styles.profileEmpty}><h3>No leave requests</h3><p>This staff member has not submitted any leave requests.</p></div>
+      ) : (
+        <div className={styles.leaveList}>
+          {requests.map(request => {
+            const dates = leaveDates(request);
+            return (
+              <article className={styles.leaveItem} key={request.id}>
+                <header>
+                  <div><h4>{leaveTypes[request.type]}</h4><p>Submitted {request.submittedAt}</p></div>
+                  <span className={`${styles.badge} ${styles[request.status.toLowerCase()]}`}>{leaveStatuses[request.status]}</span>
+                </header>
+                <p className={styles.leaveDates}>
+                  {displayLeaveDate(dates.startDate)}{dates.startTime && `, ${dates.startTime}`}
+                  {" - "}
+                  {displayLeaveDate(dates.endDate)}{dates.endTime && `, ${dates.endTime}`}
+                  {request.allDay && " (whole days)"}
+                </p>
+                <p>Back to work: {displayLeaveDate(request.returnDate)}{request.returnTime && `, ${request.returnTime}`}</p>
+                <p className={styles.leaveReason}>{request.reason}</p>
+                {request.reviewer && <p className={styles.leaveMeta}>Reviewed by {request.reviewer}</p>}
+                {request.decisionNote && <p className={styles.leaveNote}><strong>Decision note:</strong> {request.decisionNote}</p>}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function StaffProfileDialog({ person, onClose }: {
   person: StaffProfile;
@@ -46,7 +85,7 @@ export default function StaffProfileDialog({ person, onClose }: {
         </dl>
       )}
       {tab === "timesheets" && <div className={styles.profileEmpty}><h3>Timesheets</h3><p>Timesheet history will be added next.</p></div>}
-      {tab === "leave" && <div className={styles.profileEmpty}><h3>Leave</h3><p>Leave history will be added next.</p></div>}
+      {tab === "leave" && <StaffProfileLeave requests={person.leave} />}
       {tab === "activity" && <div className={styles.profileEmpty}><h3>Activity</h3><p>Profile activity will be added with the staff audit workflow.</p></div>}
     </dialog>
   );

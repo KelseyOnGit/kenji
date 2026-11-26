@@ -44,6 +44,22 @@
 .profileEmpty { margin-top: 24px; padding: 34px 20px; border: 1px solid #ddd7cf; border-radius: 12px; background: #fff; text-align: center; }
 .profileEmpty h3 { margin: 0 0 8px; }
 .profileEmpty p { margin: 0; color: #70665e; }
+.leaveSection { margin-top: 24px; }
+.leaveSummary { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+.leaveSummary h3, .leaveSummary p { margin: 0; }
+.leaveSummary p { margin-top: 4px; color: #70665e; font-size: 12px; }
+.leaveList { display: grid; gap: 12px; }
+.leaveItem { border: 1px solid #ddd7cf; border-radius: 12px; background: #fff; padding: 18px; }
+.leaveItem header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.leaveItem h4, .leaveItem header p { margin: 0; }
+.leaveItem h4 { font-size: 16px; }
+.leaveItem header p, .leaveMeta { margin-top: 4px; color: #78716c; font-size: 12px; }
+.leaveDates { color: #292524 !important; font-weight: 700; }
+.leaveReason, .leaveNote { white-space: pre-wrap; overflow-wrap: anywhere; }
+.leaveItem .leaveNote { margin-bottom: 0; border-radius: 7px; background: #f5f2ed; padding: 10px; }
+.approved { border-color: #94b59b; background: #e9f5eb; color: #275b36; }
+.rejected { border-color: #d7a29e; background: #fbecea; color: #932b26; }
+.cancelled { border-color: #bdb8b1; background: #efeeec; color: #57534f; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 850px) {
   .list { grid-template-columns: 1fr; }
@@ -54,4 +70,5 @@
   .card dl, .profileDetails { grid-template-columns: 1fr; }
   .dialog { padding: 20px; }
   .dialogHeader, .profileIdentity { align-items: flex-start; }
+  .leaveSummary { align-items: flex-start; flex-direction: column; }
 }

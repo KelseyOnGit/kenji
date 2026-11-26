@@ -1,0 +1,15 @@
+.dialog { position: fixed; inset: 50% auto auto 50%; width: min(660px, calc(100vw - 32px)); max-height: 90svh; margin: 0; overflow-y: auto; transform: translate(-50%, -50%); border: 1px solid #aaa39b; border-radius: 16px; background: #faf9f6; color: #292524; padding: 28px; box-shadow: 0 24px 80px #0006; }
+.dialog::backdrop { background: #171412b3; }
+.dialog h2 { margin: 0 0 20px; font-size: 26px; }
+.form fieldset { display: grid; gap: 16px; margin: 0; padding: 0; border: 0; }
+.form label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; }
+.form label > span { color: #78716c; font-size: 11px; font-weight: 400; }
+.form input, .form select { width: 100%; min-height: 42px; border: 1px solid #aaa39b; border-radius: 8px; background: #fff; color: #292524; padding: 9px 11px; font: inherit; }
+.hint { margin: 0; color: #70665e; font-size: 12px; line-height: 1.5; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.dialogActions button { min-height: 40px; border: 1px solid #aaa39b; border-radius: 7px; background: #fff; color: #44403c; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.dialogActions .primary { border-color: #b45309; background: #b45309; color: #fff; }
+.error { border: 1px solid #be6354; border-radius: 8px; background: #fff0ed; color: #942a22; padding: 12px; }
+.saved { color: #275b36; font-size: 12px; font-weight: 600; }
+.dialog button:disabled, .dialog fieldset:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 600px) { .dialog { padding: 20px; } }

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { StaffProfile, StaffStatus } from "@leave/lib/staff-data";
 import styles from "@leave/app/admin/(portal)/staff/staff.module.css";
 import StaffProfileDialog from "./StaffProfileDialog";
+import EditStaffDetails from "./EditStaffDetails";
 
 export default function StaffProfiles({
   initialPeople,
@@ -94,6 +95,7 @@ export default function StaffProfiles({
             <button type="button" onClick={() => setSelected(person)}>
               View profile
             </button>
+            <EditStaffDetails profile={person} />
           </article>
         ))}
       </div>

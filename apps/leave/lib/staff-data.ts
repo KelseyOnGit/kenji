@@ -2,6 +2,7 @@ import { prisma } from "@kenji/database";
 import { formatPhoneForDisplay } from "@kenji/web/identity";
 import { perthDisplay } from "./timesheets";
 import type { Prisma } from "@prisma/client";
+import type { LeaveStatus, LeaveType } from "./leave";
 
 const staffProfileSelect = {
   id: true,
@@ -11,6 +12,26 @@ const staffProfileSelect = {
   email: true,
   phone: true,
   createdAt: true,
+  updatedAt: true,
+  employmentType: true,
+  leaveRequests: {
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      allDay: true,
+      returnDate: true,
+      returnTime: true,
+      reason: true,
+      decisionNote: true,
+      createdAt: true,
+      reviewer: { select: { displayName: true } },
+    },
+    orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+    take: 25,
+  },
 } satisfies Prisma.UserSelect;
 
 
@@ -33,6 +54,22 @@ function formatStaffProfile(person: StaffProfileRecord): StaffProfile {
       ? formatPhoneForDisplay(person.phone)
       : null,
     registeredAt: staffDate(person.createdAt),
+    updatedAt: person.updatedAt.toISOString(),
+    employmentType: person.employmentType === "PART_TIME" ? null : person.employmentType,
+    leave: person.leaveRequests.map(request => ({
+      id: request.id,
+      type: request.type,
+      status: request.status,
+      startsAt: request.startsAt.toISOString(),
+      endsAt: request.endsAt.toISOString(),
+      allDay: request.allDay,
+      returnDate: request.returnDate.toISOString().slice(0, 10),
+      returnTime: request.returnTime,
+      reason: request.reason,
+      decisionNote: request.decisionNote,
+      reviewer: request.reviewer?.displayName ?? null,
+      submittedAt: staffDate(request.createdAt),
+    })),
   };
 }
 
@@ -55,9 +92,26 @@ export type StaffProfile = {
   email: string | null;
   phone: string | null;       // formatted for display, e.g. "0412 345 678"
   registeredAt: string;       // Perth time, e.g. "23 Nov 2026, 11:39"
+  updatedAt: string;
+  employmentType: "FULL_TIME" | "CASUAL" | null;
+  leave: StaffProfileLeave[];
 };
 
 export type StaffStatus = StaffProfile["status"];
+export type StaffProfileLeave = {
+  id: string;
+  type: LeaveType;
+  status: LeaveStatus;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  returnDate: string;
+  returnTime: string | null;
+  reason: string;
+  decisionNote: string | null;
+  reviewer: string | null;
+  submittedAt: string;
+};
 
 
 const pendingWhere = { role: "STAFF", status: "PENDING" } as const;

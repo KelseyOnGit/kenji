@@ -43,7 +43,7 @@ describe("admin logout", () => {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
     }));
     expect(mocks.deleteSession).toHaveBeenCalledOnce();
-    expect(await response.json()).toEqual({ ok: true });
+        expect(await response.json()).toEqual({ ok: true });
   });
 
   it("redirects to login after the logout request succeeds", async () => {
@@ -62,10 +62,11 @@ describe("admin logout", () => {
   it("shows a failure without navigating when logout fails", async () => {
     mocks.requestJson.mockRejectedValue(new Error("Connection lost."));
     await clickLogout();
-    
+
     expect(mocks.setError).toHaveBeenLastCalledWith("Connection lost.");
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
     expect(mocks.setPending).toHaveBeenLastCalledWith(false);
   });
 });
+
